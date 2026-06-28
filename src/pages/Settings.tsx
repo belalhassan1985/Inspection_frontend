@@ -50,6 +50,7 @@ export const Settings: React.FC = () => {
     if (isAdminOrEditor) {
       loadTypes();
       loadOptionTypes();
+      loadRiskLevels();
     }
   }, [user]);
 
@@ -208,6 +209,111 @@ export const Settings: React.FC = () => {
     setTypeId(null);
     setTypeName('');
     setTypeKey('');
+  };
+
+  // Risk Level states
+  const [riskOptions, setRiskOptions] = useState<any[]>([]);
+  const [riskLoading, setRiskLoading] = useState(true);
+  const [riskError, setRiskError] = useState('');
+  const [showRiskForm, setShowRiskForm] = useState(false);
+  const [riskForm, setRiskForm] = useState({
+    id: null as number | null,
+    code: '',
+    codeFixed: false,
+    nameAr: '',
+    color: '#dc2626',
+    severityWeight: '0',
+    sortOrder: '0',
+    isActive: true,
+  });
+
+  const loadRiskLevels = async () => {
+    setRiskLoading(true);
+    setRiskError('');
+    try {
+      const data = await apiFetch('/risk-level-options');
+      setRiskOptions(data);
+    } catch (e: any) {
+      setRiskError(e.message || 'فشل تحميل مستويات الخطورة.');
+    } finally {
+      setRiskLoading(false);
+    }
+  };
+
+  const resetRiskForm = () => {
+    setRiskForm({
+      id: null,
+      code: '',
+      codeFixed: false,
+      nameAr: '',
+      color: '#dc2626',
+      severityWeight: '0',
+      sortOrder: '0',
+      isActive: true,
+    });
+  };
+
+  const editRiskLevel = (item: any) => {
+    setRiskForm({
+      id: item.id,
+      code: item.code || '',
+      codeFixed: true,
+      nameAr: item.nameAr || '',
+      color: item.color || '#dc2626',
+      severityWeight: String(item.severityWeight ?? '0'),
+      sortOrder: String(item.sortOrder ?? '0'),
+      isActive: item.isActive !== false,
+    });
+    setShowRiskForm(true);
+  };
+
+  const handleSaveRiskLevel = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isAdmin || !riskForm.nameAr.trim() || !riskForm.code.trim()) return;
+
+    const payload = {
+      code: riskForm.code.trim(),
+      nameAr: riskForm.nameAr.trim(),
+      color: riskForm.color,
+      severityWeight: Number(riskForm.severityWeight) || 0,
+      sortOrder: Number(riskForm.sortOrder) || 0,
+      isActive: riskForm.isActive,
+    };
+    try {
+      if (riskForm.id) {
+        await apiFetch(`/risk-level-options/${riskForm.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await apiFetch('/risk-level-options', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      }
+      setShowRiskForm(false);
+      resetRiskForm();
+      loadRiskLevels();
+    } catch (err: any) {
+      let friendlyMsg = 'تعذر حفظ مستوى الخطورة، يرجى المحاولة مرة أخرى.';
+      if (err.message?.includes('Unique constraint')) {
+        friendlyMsg = 'يوجد مستوى خطورة مسجل مسبقاً بنفس الاسم أو الكود.';
+      }
+      setRiskError(friendlyMsg);
+    }
+  };
+
+  const handleToggleRiskLevel = async (item: any) => {
+    if (!isAdmin) return;
+    try {
+      await apiFetch(`/risk-level-options/${item.id}/toggle`, {
+        method: 'PATCH',
+        body: JSON.stringify({ isActive: !item.isActive }),
+      });
+      loadRiskLevels();
+    } catch (err: any) {
+      setRiskError(err.message || 'فشل تغيير حالة مستوى الخطورة.');
+    }
   };
 
   return (
@@ -520,12 +626,213 @@ export const Settings: React.FC = () => {
             )}
           </div>
 
-          {/* Placeholder for other dropdown settings */}
-          <div className="card" style={{ borderRight: '6px solid var(--secondary-color)', opacity: 0.85 }}>
-            <h3 style={{ margin: 0, color: 'var(--primary-color)' }}>⚙️ بقية القوائم المنسدلة للنظام</h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '8px' }}>
-              يشتمل هذا القسم مستقبلاً على إدارة القوائم المنسدلة المغلقة الأخرى (مثل: أنواع التكليف بالمناصب، وحالات التقييم) لحظر التلاعب وتسهيل الصيانة.
-            </p>
+          {/* Risk Level Options Management */}
+          <div className="card" style={{ borderRight: '6px solid var(--accent-color)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+              <div>
+                <h3 style={{ margin: 0, color: 'var(--primary-color)' }}>🔴 مستويات الخطورة</h3>
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
+                  إدارة مستويات الخطورة المستخدمة في التوصيات (حرج، عالي، متوسط، منخفض) مع الألوان والأوزان
+                </p>
+              </div>
+              {isAdmin && !showRiskForm && (
+                <button
+                  onClick={() => { resetRiskForm(); setShowRiskForm(true); }}
+                  className="btn-primary"
+                  style={{ padding: '8px 15px', fontSize: '13px' }}
+                >
+                  + إضافة مستوى خطورة
+                </button>
+              )}
+            </div>
+
+            {!isAdmin && (
+              <div style={{ backgroundColor: '#f8fafc', border: '1px solid var(--border-color)', padding: '10px', borderRadius: '6px', marginBottom: '12px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                إدارة مستويات الخطورة محصورة بمدير النظام. تظهر القائمة هنا للعرض فقط.
+              </div>
+            )}
+
+            {riskError && (
+              <div style={{ backgroundColor: 'rgba(230,57,70,0.05)', color: 'var(--accent-color)', padding: '10px', borderRadius: '6px', marginBottom: '15px', fontSize: '13px' }}>
+                {riskError}
+              </div>
+            )}
+
+            {isAdmin && showRiskForm && (
+              <form onSubmit={handleSaveRiskLevel} style={{ backgroundColor: '#f8fafc', padding: '20px', borderRadius: '12px', marginBottom: '20px', border: '1px solid var(--border-color)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+                <h4 style={{ margin: '0 0 15px 0', color: 'var(--primary-color)', fontSize: '16px' }}>
+                  {riskForm.id ? 'تعديل مستوى خطورة' : 'إضافة مستوى خطورة جديد'}
+                </h4>
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label>الاسم العربي (يظهر في التوصيات)</label>
+                    <input
+                      type="text"
+                      value={riskForm.nameAr}
+                      onChange={(e) => setRiskForm((prev) => ({ ...prev, nameAr: e.target.value }))}
+                      placeholder="مثال: حرج، عالي، متوسط"
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>الكود (Code)</label>
+                    <input
+                      type="text"
+                      value={riskForm.code}
+                      onChange={(e) => setRiskForm((prev) => ({ ...prev, code: e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '') }))}
+                      placeholder="مثال: CRITICAL, HIGH"
+                      required
+                      disabled={!!riskForm.codeFixed}
+                      style={{ backgroundColor: riskForm.codeFixed ? '#f1f5f9' : '#fff' }}
+                    />
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>سيتم استخدامه كمعرف فريد في النظام. أحرف إنجليزية كبيرة فقط.</span>
+                  </div>
+                </div>
+
+                <div className="grid-2" style={{ marginTop: '15px' }}>
+                  <div className="form-group">
+                    <label>وزن الشدة (severity_weight)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={riskForm.severityWeight}
+                      onChange={(e) => setRiskForm((prev) => ({ ...prev, severityWeight: e.target.value }))}
+                      placeholder="0"
+                      style={{ width: '120px' }}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>ترتيب العرض (sort_order)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={riskForm.sortOrder}
+                      onChange={(e) => setRiskForm((prev) => ({ ...prev, sortOrder: e.target.value }))}
+                      placeholder="0"
+                      style={{ width: '120px' }}
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group" style={{ marginTop: '15px' }}>
+                  <label>لون التمييز</label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', backgroundColor: '#fff', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <input
+                      type="color"
+                      value={riskForm.color}
+                      onChange={(e) => setRiskForm((prev) => ({ ...prev, color: e.target.value }))}
+                      style={{ width: '40px', height: '40px', padding: '2px', border: '1px solid #cbd5e0', borderRadius: '4px', cursor: 'pointer' }}
+                    />
+                    <div style={{ width: '1px', height: '30px', backgroundColor: '#e2e8f0', margin: '0 5px' }} />
+                    {[
+                      { name: 'أحمر', value: '#dc2626' },
+                      { name: 'برتقالي', value: '#f59e0b' },
+                      { name: 'أزرق', value: '#3b82f6' },
+                      { name: 'أخضر', value: '#10b981' },
+                      { name: 'بنفسجي', value: '#8b5cf6' },
+                      { name: 'زهري', value: '#ec4899' }
+                    ].map(c => (
+                      <button
+                        key={c.value}
+                        type="button"
+                        onClick={() => setRiskForm(prev => ({ ...prev, color: c.value }))}
+                        style={{
+                          width: '28px', height: '28px', borderRadius: '50%', backgroundColor: c.value,
+                          border: riskForm.color === c.value ? '2px solid #2d3748' : '1px solid rgba(0,0,0,0.1)',
+                          cursor: 'pointer', transition: 'all 0.2s'
+                        }}
+                        title={c.name}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '24px', alignItems: 'center', marginTop: '20px', padding: '10px', backgroundColor: 'rgba(0,0,0,0.02)', borderRadius: '8px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={riskForm.isActive}
+                      onChange={(e) => setRiskForm((prev) => ({ ...prev, isActive: e.target.checked }))}
+                    />
+                    <b>الحالة: نشط</b>
+                  </label>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
+                  <button type="button" onClick={() => { setShowRiskForm(false); resetRiskForm(); }} className="btn-outline" style={{ padding: '8px 25px' }}>إلغاء</button>
+                  <button type="submit" className="btn-primary" style={{ padding: '8px 35px' }}>حفظ التغييرات</button>
+                </div>
+              </form>
+            )}
+
+            {riskLoading ? (
+              <div style={{ padding: '20px', textAlign: 'center', fontSize: '13px' }}>جاري تحميل مستويات الخطورة...</div>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'right' }}>المستوى</th>
+                    <th style={{ textAlign: 'center' }}>الكود</th>
+                    <th style={{ textAlign: 'center' }}>الوزن</th>
+                    <th style={{ textAlign: 'center' }}>الترتيب</th>
+                    <th style={{ textAlign: 'center' }}>الحالة</th>
+                    <th style={{ textAlign: 'center', width: '190px' }}>العمليات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {riskOptions.map((item) => (
+                    <tr key={item.id}>
+                      <td>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', fontWeight: 'bold' }}>
+                          <span style={{ width: '18px', height: '18px', borderRadius: '50%', backgroundColor: item.color || '#cbd5e0', border: '1px solid rgba(0,0,0,0.1)' }} />
+                          <span style={{ color: item.color }}>{item.nameAr}</span>
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'center' }}><code>{item.code}</code></td>
+                      <td style={{ textAlign: 'center' }}>{item.severityWeight ?? 0}</td>
+                      <td style={{ textAlign: 'center' }}>{item.sortOrder}</td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span className={`badge ${item.isActive ? 'badge-success' : 'badge-danger'}`} style={{ fontSize: '11px', padding: '3px 10px' }}>
+                          {item.isActive ? 'نشط' : 'معطل'}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        {isAdmin ? (
+                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                            <button onClick={() => editRiskLevel(item)} className="btn-outline" style={{ padding: '5px 12px', fontSize: '11px', borderRadius: '6px' }}>
+                              تعديل ✏️
+                            </button>
+                            <button
+                              onClick={() => handleToggleRiskLevel(item)}
+                              className="btn-outline"
+                              style={{
+                                padding: '5px 12px',
+                                fontSize: '11px',
+                                borderRadius: '6px',
+                                color: item.isActive ? 'var(--accent-color)' : 'var(--primary-color)',
+                                borderColor: item.isActive ? 'var(--accent-color)' : 'var(--primary-color)'
+                              }}
+                            >
+                              {item.isActive ? 'تعطيل 🔒' : 'تفعيل 🔓'}
+                            </button>
+                          </div>
+                        ) : (
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>عرض فقط</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {riskOptions.length === 0 && (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '15px' }}>
+                        لا توجد مستويات خطورة مسجلة حالياً.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
 
         </div>

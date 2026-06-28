@@ -12,6 +12,8 @@
   "dependencies": {
     "apexcharts": "^5.13.0",
     "axios": "^1.16.1",
+    "html-to-image": "^1.11.13",
+    "jspdf": "^4.2.1",
     "react": "^19.2.6",
     "react-apexcharts": "^2.1.0",
     "react-dom": "^19.2.6",
@@ -28,6 +30,9 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "pdf-lib": "^1.17.1",
+    "pdf-parse": "^2.4.5",
+    "puppeteer": "^25.2.1",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12"

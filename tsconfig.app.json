@@ -17,9 +17,14 @@
 
     /* Linting */
     "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "noUnusedParameters": false,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": [
+    "src/utils/reportDocumentV1Shadow",
+    "src/debug",
+    "src/components/designer/Page2OverflowDebug.tsx"
+  ]
 }

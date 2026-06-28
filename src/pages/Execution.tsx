@@ -57,6 +57,7 @@ export const Execution: React.FC = () => {
     name: string;
     statisticalNumber: string;
     joinedDate: string;
+    positionStatus: string;
     education: string;
     notes: string;
     positionName: string;
@@ -377,6 +378,7 @@ export const Execution: React.FC = () => {
           name: matchingPos?.positionHolder || '',
           statisticalNumber: matchingPos?.statisticalNumber || '',
           joinedDate: matchingPos?.joinedDate ? matchingPos.joinedDate.substring(0, 10) : '',
+          positionStatus: matchingPos?.positionStatus || 'اصالة',
           education: matchingPos?.education || '',
           notes: matchingPos?.notes || '',
           positionName: cleanedTitle,
@@ -432,6 +434,12 @@ export const Execution: React.FC = () => {
 
         if (inspection.officerCredentials) {
           Object.assign(loadedCredentials, inspection.officerCredentials);
+          Object.keys(loadedCredentials).forEach((key) => {
+            loadedCredentials[key] = {
+              ...loadedCredentials[key],
+              positionStatus: loadedCredentials[key]?.positionStatus || 'اصالة',
+            };
+          });
         }
 
         inspection.grades.forEach((g: any) => {
@@ -481,6 +489,7 @@ export const Execution: React.FC = () => {
                   name: matchingPos?.positionHolder || '',
                   statisticalNumber: matchingPos?.statisticalNumber || '',
                   joinedDate: matchingPos?.joinedDate ? matchingPos.joinedDate.substring(0, 10) : '',
+                  positionStatus: matchingPos?.positionStatus || 'اصالة',
                   education: matchingPos?.education || '',
                   notes: matchingPos?.notes || '',
                   positionName: fullInstName,
@@ -579,6 +588,7 @@ export const Execution: React.FC = () => {
         name: matchingPos?.positionHolder || '',
         statisticalNumber: matchingPos?.statisticalNumber || '',
         joinedDate: matchingPos?.joinedDate ? matchingPos.joinedDate.substring(0, 10) : '',
+        positionStatus: matchingPos?.positionStatus || 'اصالة',
         education: matchingPos?.education || '',
         notes: matchingPos?.notes || '',
         positionName: fullInstName,
@@ -742,9 +752,29 @@ export const Execution: React.FC = () => {
     handleGradeChange(detail.id, 'gradeEarned', recommended);
   };
 
+  const getTableSchema = (det: any) =>
+    det.tableSchema
+      ? (typeof det.tableSchema === 'string' ? JSON.parse(det.tableSchema) : det.tableSchema)
+      : DEFAULT_PERSONNEL_SCHEMA;
+
   // Check if a quantitative table is modified/entered
-  const isQuantTableEntered = (rows: any[]) => {
+  const isQuantTableEntered = (rows: any[], schema?: any[]) => {
     if (!rows || rows.length === 0) return false;
+    if (schema && schema.length > 0) {
+      return rows.some((row) =>
+        schema.some((col: any) => {
+          const value = row?.[col.key];
+          if (value === null || value === undefined || value === '') return false;
+          if (col.type === 'number' || col.type === 'percentage') {
+            return Number(value) !== 0;
+          }
+          if (typeof value === 'string') return value.trim() !== '';
+          if (typeof value === 'number') return value !== 0;
+          return Boolean(value);
+        })
+      );
+    }
+
     return rows.some(row => 
       (Number(row.nominal) || 0) > 0 || 
       (Number(row.actual) || 0) > 0 || 
@@ -799,7 +829,8 @@ export const Execution: React.FC = () => {
       }
       if (isDetailedTable) {
         const rows = quantitativeTables[stateKey] || [];
-        if (isQuantTableEntered(rows)) {
+        const schema = getTableSchema(det);
+        if (isQuantTableEntered(rows, schema)) {
           hasData = true;
           isDetailCompleted = true;
         }
@@ -905,8 +936,10 @@ export const Execution: React.FC = () => {
               const state = enteredGrades[stateKey] || { gradeEarned: '', notes: '' };
               const selectedOpts = selectedOptionsMap[stateKey] || [];
               const rows = quantitativeTables[stateKey] || [];
+              const isDetailedTable = det.inputType === 'detailed_table' || det.detailText.includes("المواقف الرسمية") || det.detailText.includes("نسب التكامل");
+              const schema = isDetailedTable ? getTableSchema(det) : undefined;
               
-              const hasData = state.gradeEarned !== '' || selectedOpts.length > 0 || state.notes.trim() !== '' || isQuantTableEntered(rows);
+              const hasData = state.gradeEarned !== '' || selectedOpts.length > 0 || state.notes.trim() !== '' || isQuantTableEntered(rows, schema);
               
               if (hasData) {
                 gradesPayload.push({
@@ -1011,32 +1044,42 @@ export const Execution: React.FC = () => {
   }, [template, enteredGrades, selectedOptionsMap, sectionInstances]);
 
   // Update calculations for dynamic tables
-  const updateRowCalculations = (row: any) => {
+  const updateRowCalculations = (row: any, schema: any[] = []) => {
     const newRow = { ...row };
-    const nominal = Number(newRow.nominal) || 0;
-    const actual = Number(newRow.actual) || 0;
+
+    const keyByRole = (role: string, fallbackKey: string) =>
+      schema.find((col: any) => col.role === role)?.key || (fallbackKey in newRow ? fallbackKey : null);
+
+    const nominalKey = keyByRole('nominal', 'nominal');
+    const actualKey = keyByRole('actual', 'actual');
+    const deficitKey = keyByRole('deficit', 'deficit');
+    const increaseKey = keyByRole('increase', 'increase');
+    const percentageKey = keyByRole('percentage', 'percentage');
+
+    const nominal = nominalKey ? Number(newRow[nominalKey]) || 0 : 0;
+    const actual = actualKey ? Number(newRow[actualKey]) || 0 : 0;
     const working = Number(newRow.working) || 0;
     const total_count = Number(newRow.total_count) || 0;
     const required_count = Number(newRow.required_count) || 0;
     const working_actual = Number(newRow.working_actual) || 0;
 
-    if ('deficit' in newRow) {
-      newRow.deficit = Math.max(0, nominal - actual);
+    if (deficitKey && deficitKey in newRow) {
+      newRow[deficitKey] = Math.max(0, nominal - actual);
     }
-    if ('increase' in newRow) {
-      newRow.increase = Math.max(0, actual - nominal);
+    if (increaseKey && increaseKey in newRow) {
+      newRow[increaseKey] = Math.max(0, actual - nominal);
     }
-    if ('percentage' in newRow) {
-      if ('nominal' in newRow) {
-        if ('actual' in newRow && !('working' in newRow)) {
-          newRow.percentage = nominal > 0 ? parseFloat(((actual / nominal) * 100).toFixed(1)) : 0;
+    if (percentageKey && percentageKey in newRow) {
+      if (nominalKey) {
+        if (actualKey && !('working' in newRow)) {
+          newRow[percentageKey] = nominal > 0 ? parseFloat(((actual / nominal) * 100).toFixed(1)) : 0;
         } else if ('working' in newRow) {
-          newRow.percentage = nominal > 0 ? parseFloat(((working / nominal) * 100).toFixed(1)) : 0;
+          newRow[percentageKey] = nominal > 0 ? parseFloat(((working / nominal) * 100).toFixed(1)) : 0;
         }
       } else if ('actual' in newRow && 'working' in newRow) {
-        newRow.percentage = actual > 0 ? parseFloat(((working / actual) * 100).toFixed(1)) : 0;
+        newRow[percentageKey] = actual > 0 ? parseFloat(((working / actual) * 100).toFixed(1)) : 0;
       } else if ('required_count' in newRow && 'working_actual' in newRow) {
-        newRow.percentage = required_count > 0 ? parseFloat(((working_actual / required_count) * 100).toFixed(1)) : 0;
+        newRow[percentageKey] = required_count > 0 ? parseFloat(((working_actual / required_count) * 100).toFixed(1)) : 0;
       }
     }
     if ('readiness_rate' in newRow) {
@@ -1081,7 +1124,7 @@ export const Execution: React.FC = () => {
         currentRow[colKey] = val;
       }
 
-      const updatedRow = updateRowCalculations(currentRow);
+      const updatedRow = updateRowCalculations(currentRow, schema);
       nextRows[rowIndex] = updatedRow;
       
       setQuantitativeTables(prev => ({
@@ -1445,6 +1488,20 @@ export const Execution: React.FC = () => {
                               style={{ padding: '5px 10px', fontSize: '12.5px' }}
                               disabled={isReadOnly}
                             />
+                          </div>
+
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <label style={{ fontSize: '11px' }}>نوع الإشغال</label>
+                            <select
+                              value={officerCredentials[`${activeSecondary.id}_${activeTabSuffix}`]?.positionStatus || 'اصالة'}
+                              onChange={(e) => handleCredentialChange('positionStatus', e.target.value)}
+                              style={{ padding: '6px 10px', fontSize: '12.5px' }}
+                              disabled={isReadOnly}
+                            >
+                              <option value="اصالة">أصالة</option>
+                              <option value="وكالة">وكالة</option>
+                              <option value="تكليف">تكليف</option>
+                            </select>
                           </div>
 
                           <div className="form-group" style={{ margin: 0 }}>

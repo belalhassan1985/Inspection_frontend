@@ -14,7 +14,6 @@ type RecommendationStatus =
   | 'REJECTED'
   | 'OVERDUE';
 
-type RiskLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 type ImpactCategory =
   | 'SECURITY'
   | 'OPERATIONAL'
@@ -30,7 +29,7 @@ export interface RecommendationFilters {
   status: RecommendationStatus | '';
   statusIn?: string;
   statusNotIn?: string;
-  riskLevel: RiskLevel | '';
+  riskLevel: string;
   impactCategory: ImpactCategory | '';
   overdue: boolean;
   campaignId: string;

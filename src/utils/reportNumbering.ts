@@ -61,6 +61,78 @@ const ordinals = [
   'رابع عشر', 'خامس عشر', 'سادس عشر', 'سابع عشر', 'ثامن عشر', 'تاسع عشر', 'عشرون'
 ];
 
+const compoundOrdinalUnits = [
+  '',
+  'حادي',
+  'ثاني',
+  'ثالث',
+  'رابع',
+  'خامس',
+  'سادس',
+  'سابع',
+  'ثامن',
+  'تاسع',
+];
+
+const ordinalTens: Record<number, string> = {
+  20: 'عشرون',
+  30: 'ثلاثون',
+  40: 'أربعون',
+  50: 'خمسون',
+  60: 'ستون',
+  70: 'سبعون',
+  80: 'ثمانون',
+  90: 'تسعون',
+  100: 'مئة',
+};
+
+const cardinalUnits = [
+  '',
+  'واحد',
+  'اثنان',
+  'ثلاثة',
+  'أربعة',
+  'خمسة',
+  'ستة',
+  'سبعة',
+  'ثمانية',
+  'تسعة',
+];
+
+const cardinalTeens: Record<number, string> = {
+  10: 'عشرة',
+  11: 'أحد عشر',
+  12: 'اثنا عشر',
+  13: 'ثلاثة عشر',
+  14: 'أربعة عشر',
+  15: 'خمسة عشر',
+  16: 'ستة عشر',
+  17: 'سبعة عشر',
+  18: 'ثمانية عشر',
+  19: 'تسعة عشر',
+};
+
+const hundredTexts: Record<number, string> = {
+  100: 'مئة',
+  200: 'مئتان',
+  300: 'ثلاثمئة',
+  400: 'أربعمئة',
+  500: 'خمسمئة',
+  600: 'ستمئة',
+  700: 'سبعمئة',
+  800: 'ثمانمئة',
+  900: 'تسعمئة',
+};
+
+function getCardinalBelowHundred(num: number): string {
+  if (num < 10) return cardinalUnits[num] || `${num}`;
+  if (num < 20) return cardinalTeens[num] || `${num}`;
+  const unit = num % 10;
+  const tens = num - unit;
+  if (unit === 0) return ordinalTens[num] || `${num}`;
+  return `${cardinalUnits[unit]} و${ordinalTens[tens]}`;
+}
+
 export function getRoman(num: number): string {
   return romanNumbers[num - 1] || `${num}`;
 }
@@ -74,7 +146,44 @@ export function getEnglishLetter(num: number): string {
 }
 
 export function getOrdinal(num: number): string {
-  return ordinals[num - 1] || `${num}`;
+  if (!Number.isInteger(num) || num < 1) return `${num}`;
+  if (num <= ordinals.length) return ordinals[num - 1];
+  if (num <= 100) {
+    const unit = num % 10;
+    const tens = num - unit;
+    if (unit === 0) return ordinalTens[num] || `${num}`;
+    return `${compoundOrdinalUnits[unit]} و${ordinalTens[tens]}`;
+  }
+  if (num <= 999) {
+    const remainder = num % 100;
+    const hundreds = num - remainder;
+    const hundredText = hundredTexts[hundreds];
+    if (!hundredText) return `${num}`;
+    if (remainder === 0) return hundredText;
+    return `${hundredText} و${getCardinalBelowHundred(remainder)}`;
+  }
+  return `${num}`;
+}
+
+export function toEasternArabicDigits(value: number | string): string {
+  return String(value).replace(/\d/g, (digit) => '\u0660\u0661\u0662\u0663\u0664\u0665\u0666\u0667\u0668\u0669'[parseInt(digit, 10)]);
+}
+
+export function formatArabicTableValue(value: number | string, options: { percentage?: boolean } = {}): string {
+  const raw = value === null || value === undefined ? '' : String(value);
+  if (raw === '') return '';
+
+  if (options.percentage) {
+    const withoutPercent = raw.replace(/[%\u066a]/g, '');
+    return `${toEasternArabicDigits(withoutPercent)}\u066a`;
+  }
+
+  const trimmed = raw.trim();
+  if (/^-?\d+(?:\.\d+)?%?$/.test(trimmed)) {
+    return toEasternArabicDigits(raw).replace(/%/g, '\u066a');
+  }
+
+  return raw;
 }
 
 // Level 1: 1. / I. / -
@@ -87,7 +196,7 @@ export function getLevel1Number(index: number, config: ReportFormattingConfig = 
       return '-';
     case 'numeric':
     default:
-      return `${index}.`;
+      return `${toEasternArabicDigits(index)}.`;
   }
 }
 

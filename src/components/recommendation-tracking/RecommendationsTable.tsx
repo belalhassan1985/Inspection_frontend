@@ -15,7 +15,6 @@ type RecommendationStatus =
   | 'REJECTED'
   | 'OVERDUE';
 
-type RiskLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 type ImpactCategory =
   | 'SECURITY'
   | 'OPERATIONAL'
@@ -32,7 +31,7 @@ export interface TrackingRecord {
   assignedEntityNameSnapshot: string;
   status: RecommendationStatus;
   progressPercent: number;
-  riskLevel: RiskLevel;
+  riskLevel: string;
   impactCategory: ImpactCategory;
   escalationLevel: number;
   dueDate: string | null;

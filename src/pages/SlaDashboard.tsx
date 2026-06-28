@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { apiFetch } from '../services/api';
 import { Link } from 'react-router-dom';
 import { KpiCard } from '../components/dashboard/KpiCard';
+import { fetchRiskLevelOptions } from '../services/riskLevelService';
 
 interface SlaSummary {
   total: number;
@@ -84,9 +85,17 @@ export const SlaDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [slaFilter, setSlaFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [riskMap, setRiskMap] = useState<Record<string, { color: string; label: string }>>({});
 
   useEffect(() => {
     fetchData();
+    fetchRiskLevelOptions().then(opts => {
+      const map: Record<string, { color: string; label: string }> = {};
+      for (const opt of opts) {
+        map[opt.code] = { color: opt.color, label: opt.nameAr };
+      }
+      setRiskMap(map);
+    }).catch(() => {});
   }, []);
 
   const fetchData = async () => {
@@ -320,31 +329,31 @@ export const SlaDashboard: React.FC = () => {
               ) : (
                 filteredMetrics.map((m) => {
                   const sla = slaColors[m.overallSla] || slaColors.normal;
-                  const riskColors: Record<string, string> = { CRITICAL: '#dc2626', HIGH: '#f59e0b', MEDIUM: '#3b82f6', LOW: '#10b981' };
-                  return (
-                    <tr key={m.trackingId} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={tdStyle}>
-                        <Link to={`/recommendations/tracking/${m.trackingId}`} style={{ color: '#0c2340', fontWeight: 600, textDecoration: 'none' }}>
-                          {m.recommendationNumber}
-                        </Link>
-                      </td>
-                      <td style={tdStyle}>
-                        <span style={{
-                          padding: '3px 10px',
-                          borderRadius: '20px',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          color: '#ffffff',
-                          backgroundColor: statusColors[m.status] || '#6b7280',
-                        }}>
-                          {statusLabels[m.status] || m.status}
-                        </span>
-                      </td>
-                      <td style={tdStyle}>
-                        <span style={{ color: riskColors[m.riskLevel] || '#6b7280', fontWeight: 600, fontSize: '12px' }}>
-                          {m.riskLevel === 'CRITICAL' ? 'حرج' : m.riskLevel === 'HIGH' ? 'عالي' : m.riskLevel === 'MEDIUM' ? 'متوسط' : m.riskLevel === 'LOW' ? 'منخفض' : m.riskLevel}
-                        </span>
-                      </td>
+                   const riskCfg = riskMap[m.riskLevel] ?? { color: '#6b7280', label: m.riskLevel };
+                   return (
+                     <tr key={m.trackingId} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                       <td style={tdStyle}>
+                         <Link to={`/recommendations/tracking/${m.trackingId}`} style={{ color: '#0c2340', fontWeight: 600, textDecoration: 'none' }}>
+                           {m.recommendationNumber}
+                         </Link>
+                       </td>
+                       <td style={tdStyle}>
+                         <span style={{
+                           padding: '3px 10px',
+                           borderRadius: '20px',
+                           fontSize: '12px',
+                           fontWeight: 600,
+                           color: '#ffffff',
+                           backgroundColor: statusColors[m.status] || '#6b7280',
+                         }}>
+                           {statusLabels[m.status] || m.status}
+                         </span>
+                       </td>
+                       <td style={tdStyle}>
+                         <span style={{ color: riskCfg.color, fontWeight: 600, fontSize: '12px' }}>
+                           {riskCfg.label}
+                         </span>
+                       </td>
                       <td style={tdStyle}>
                         <span style={{
                           padding: '3px 10px',

@@ -22,7 +22,19 @@ type RecommendationStatus =
   | 'REJECTED'
   | 'OVERDUE';
 
-type RiskLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+const PROGRESS_TRANSITIONS: Partial<Record<RecommendationStatus, RecommendationStatus[]>> = {
+  FORWARDED: ['UNDER_PROCESSING'],
+  UNDER_PROCESSING: ['PARTIALLY_COMPLETED', 'COMPLETED', 'NEEDS_CLARIFICATION'],
+  PARTIALLY_COMPLETED: ['UNDER_PROCESSING', 'COMPLETED'],
+  NEEDS_CLARIFICATION: ['UNDER_PROCESSING', 'COMPLETED'],
+};
+
+const VERIFY_TRANSITIONS: Partial<Record<RecommendationStatus, RecommendationStatus[]>> = {
+  COMPLETED: ['VERIFIED', 'REJECTED', 'NEEDS_CLARIFICATION'],
+  VERIFIED: ['CLOSED'],
+  NEEDS_CLARIFICATION: ['COMPLETED', 'REJECTED', 'UNDER_PROCESSING'],
+  REJECTED: ['UNDER_PROCESSING'],
+};
 
 type HealthScoreType = 'Excellent' | 'Good' | 'Needs Attention' | 'At Risk' | 'Critical';
 
@@ -151,7 +163,7 @@ const calculateHealthScore = (
   status: RecommendationStatus,
   evidenceCount: number,
   updatedAtStr: string,
-  riskLevel: RiskLevel
+  riskLevel: string
 ): HealthScoreType => {
     if (status === 'CLOSED' || status === 'VERIFIED' || status === 'REJECTED') {
       return 'Excellent';
@@ -224,12 +236,14 @@ export const RecommendationDetails: React.FC = () => {
   const refreshTimerRef = useRef<any>(null);
   
   // Modals visibility state
+  const [showAssignModal, setShowAssignModal] = useState(false);
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [showEvidenceModal, setShowEvidenceModal] = useState(false);
 
   // Form input states
+  const [assignDueDate, setAssignDueDate] = useState('');
   const [progressVal, setProgressVal] = useState(0);
   const [progressNotes, setProgressNotes] = useState('');
   const [progressStatus, setProgressStatus] = useState<RecommendationStatus>('UNDER_PROCESSING');
@@ -264,7 +278,6 @@ export const RecommendationDetails: React.FC = () => {
       const res = await apiFetch(`/recommendations/tracking/${id}/comments`);
       setCommentsTree(res || []);
     } catch (e) {
-      console.error('Failed to load comments tree:', e);
     }
   };
 
@@ -284,13 +297,12 @@ export const RecommendationDetails: React.FC = () => {
           const campRes = await apiFetch(`/campaigns/${res.campaignId}`);
           setCampaignDetails(campRes);
         } catch (campErr) {
-          console.error('Failed to load campaign details for stakeholders card:', campErr);
+
         }
       }
 
       await loadCommentsTree();
     } catch (e: any) {
-      console.error(e);
       setError(e.message || 'فشل تحميل تفاصيل التوصية. ربما لا تملك صلاحية الوصول أو السجل غير موجود.');
     } finally {
       setLoading(false);
@@ -303,7 +315,6 @@ export const RecommendationDetails: React.FC = () => {
       clearTimeout(refreshTimerRef.current);
     }
     refreshTimerRef.current = setTimeout(() => {
-      console.log('[Socket] Debounced reload triggered for details screen.');
       loadDetails();
     }, 1500);
   };
@@ -320,20 +331,16 @@ export const RecommendationDetails: React.FC = () => {
 
     // Join room for this recommendation
     socket.emit('join:recommendation', { recommendationId: id });
-    console.log(`[Socket] Joined recommendation room: ${id}`);
 
-    const handleRecommendationUpdated = (updatedData: any) => {
-      console.log('[Socket] recommendation:updated event received:', updatedData);
+    const handleRecommendationUpdated = (_updatedData: any) => {
       debouncedLoadDetails();
     };
 
-    const handleEscalationCreated = (data: any) => {
-      console.log('[Socket] escalation:created event received:', data);
+    const handleEscalationCreated = (_data: any) => {
       debouncedLoadDetails();
     };
 
     const handleReconnect = () => {
-      console.log('[Socket] Reconnected, re-joining recommendation room...');
       socket.emit('join:recommendation', { recommendationId: id });
     };
 
@@ -349,15 +356,49 @@ export const RecommendationDetails: React.FC = () => {
       socket.off('recommendation:updated', handleRecommendationUpdated);
       socket.off('escalation:created', handleEscalationCreated);
       socket.off('connect', handleReconnect);
-      console.log(`[Socket] Left recommendation room: ${id}`);
     };
   }, [socket, id]);
+
+  const handleAssignRecommendation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setActionError('');
+    setActionSuccess('');
+    try {
+      if (data?.status !== 'ISSUED') {
+        throw new Error('هذه التوصية تمت إحالتها مسبقاً ولا تحتاج إلى تكليف أولي جديد.');
+      }
+      if (!(user?.role === 'ADMIN' || user?.role === 'EVALUATOR')) {
+        throw new Error('غير مخول بإحالة أو تكليف هذه التوصية.');
+      }
+      if (!assignDueDate) {
+        throw new Error('يرجى تحديد تاريخ استحقاق تنفيذ التوصية.');
+      }
+
+      await apiFetch(`/recommendations/tracking/${id}/assign`, {
+        method: 'POST',
+        body: JSON.stringify({ dueDate: assignDueDate }),
+      });
+      setActionSuccess('تمت إحالة التوصية إلى الجهة المختصة بنجاح.');
+      setShowAssignModal(false);
+      setAssignDueDate('');
+      await loadDetails();
+    } catch (err: any) {
+      setActionError(err.message || 'فشل إحالة أو تكليف التوصية');
+    }
+  };
 
   const handleUpdateProgress = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionError('');
     setActionSuccess('');
     try {
+      if (data?.status === 'ISSUED') {
+        throw new Error('هذه التوصية لم تُحال بعد. يرجى إحالتها إلى الجهة المختصة أولاً.');
+      }
+      const allowedTransitions = PROGRESS_TRANSITIONS[data?.status as RecommendationStatus] || [];
+      if (!allowedTransitions.includes(progressStatus)) {
+        throw new Error('لا يوجد انتقال صالح لتحديث تقدم التوصية من حالتها الحالية.');
+      }
       if (progressStatus === 'COMPLETED') {
         if (progressVal !== 100) {
           throw new Error('يجب وضع نسبة الإنجاز 100% لإعلان اكتمال التوصية');
@@ -390,6 +431,16 @@ export const RecommendationDetails: React.FC = () => {
     setActionError('');
     setActionSuccess('');
     try {
+      if (data?.status === 'ISSUED') {
+        throw new Error('هذه التوصية لم تُحال بعد. يرجى إحالتها إلى الجهة المختصة أولاً.');
+      }
+      const allowedTransitions = VERIFY_TRANSITIONS[data?.status as RecommendationStatus] || [];
+      if (!allowedTransitions.includes(statusVal)) {
+        throw new Error('لا يوجد انتقال صالح لتغيير حالة التوصية من مرحلتها الحالية.');
+      }
+      if (data?.status === 'REJECTED' && statusVal === 'UNDER_PROCESSING' && user?.role !== 'ADMIN') {
+        throw new Error('فقط المشرف يمكنه إعادة فتح توصية مرفوضة.');
+      }
       await apiFetch(`/recommendations/tracking/${id}/verify-close`, {
         method: 'POST',
         body: JSON.stringify({
@@ -767,6 +818,15 @@ export const RecommendationDetails: React.FC = () => {
       data.assignedEntityNameSnapshot.trim().toLowerCase().includes(user.department.trim().toLowerCase()) ||
       user.department.trim().toLowerCase().includes(data.assignedEntityNameSnapshot.trim().toLowerCase())
     ));
+
+  const currentStatus = data.status as RecommendationStatus;
+  const progressTargets = PROGRESS_TRANSITIONS[currentStatus] || [];
+  const verifyTargets = (VERIFY_TRANSITIONS[currentStatus] || []).filter(
+    (target) => !(currentStatus === 'REJECTED' && target === 'UNDER_PROCESSING' && user?.role !== 'ADMIN'),
+  );
+  const canAssignIssued = currentStatus === 'ISSUED' && (user?.role === 'ADMIN' || user?.role === 'EVALUATOR');
+  const canUpdateProgress = isCoordinator && !isLocked && progressTargets.length > 0;
+  const canVerifyClose = (user?.role === 'ADMIN' || user?.role === 'EVALUATOR') && !isLocked && verifyTargets.length > 0;
   
   const remainingColor = (() => {
     if (data.status === 'CLOSED' || data.status === 'VERIFIED') return '#38a169';
@@ -784,7 +844,7 @@ export const RecommendationDetails: React.FC = () => {
     data.status as RecommendationStatus,
     evidenceCount,
     data.updatedAt,
-    data.riskLevel as RiskLevel
+    data.riskLevel
   );
   const healthCfg = HEALTH_CONFIG[healthLabel];
 
@@ -1368,13 +1428,47 @@ export const RecommendationDetails: React.FC = () => {
               يمكنك تحديث حالة التوصية أو إرفاق أدلة المعالجة الميدانية بناءً على الصلاحيات الممنوحة لدوركم في النظام:
             </p>
 
+            {currentStatus === 'ISSUED' && (
+              <div style={{ marginBottom: '14px', padding: '10px 12px', borderRadius: '8px', backgroundColor: '#fff7ed', color: '#9a3412', fontSize: '12.5px', fontWeight: 700 }}>
+                هذه التوصية لم تُحال بعد. يرجى إحالتها إلى الجهة المختصة أولاً.
+              </div>
+            )}
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
+              {currentStatus === 'ISSUED' ? (
+                <button
+                  onClick={() => {
+                    setAssignDueDate('');
+                    setActionError('');
+                    setShowAssignModal(true);
+                  }}
+                  disabled={!canAssignIssued}
+                  className="btn-outline"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    fontSize: '13px',
+                    padding: '12px',
+                    backgroundColor: canAssignIssued ? '#fff' : '#f8fafc',
+                    opacity: canAssignIssued ? 1 : 0.5,
+                    cursor: canAssignIssued ? 'pointer' : 'not-allowed',
+                    fontFamily: 'Cairo, sans-serif',
+                  }}
+                  title="إحالة التوصية إلى الجهة المختصة وتحديد تاريخ الاستحقاق"
+                >
+                  📤 إحالة / تكليف التوصية
+                </button>
+              ) : (
+                <>
               <button
                 onClick={() => {
-                  setStatusVal(data.status || 'UNDER_PROCESSING');
+                  if (!canVerifyClose) return;
+                  setStatusVal(verifyTargets[0]);
                   setShowStatusModal(true);
                 }}
-                disabled={!(user?.role === 'ADMIN' || user?.role === 'EVALUATOR') || isLocked}
+                disabled={!canVerifyClose}
                 className="btn-outline"
                 style={{
                   display: 'flex',
@@ -1383,9 +1477,9 @@ export const RecommendationDetails: React.FC = () => {
                   gap: '8px',
                   fontSize: '13px',
                   padding: '12px',
-                  backgroundColor: (user?.role === 'ADMIN' || user?.role === 'EVALUATOR') && !isLocked ? '#fff' : '#f8fafc',
-                  opacity: (user?.role === 'ADMIN' || user?.role === 'EVALUATOR') && !isLocked ? 1 : 0.5,
-                  cursor: (user?.role === 'ADMIN' || user?.role === 'EVALUATOR') && !isLocked ? 'pointer' : 'not-allowed',
+                  backgroundColor: canVerifyClose ? '#fff' : '#f8fafc',
+                  opacity: canVerifyClose ? 1 : 0.5,
+                  cursor: canVerifyClose ? 'pointer' : 'not-allowed',
                   fontFamily: 'Cairo, sans-serif',
                 }}
                 title={isLocked ? "مغلقة ومعتمدة (مغلق لغير المشرف)" : "تغيير حالة التوصية والمطابقة"}
@@ -1395,21 +1489,12 @@ export const RecommendationDetails: React.FC = () => {
 
               <button
                 onClick={() => {
+                  if (!canUpdateProgress) return;
                   setProgressVal(data.progressPercent || 0);
-                  const initStatus = (function() {
-                    const current = data.status as string;
-                    const firstOptions: Record<string, string> = {
-                      FORWARDED: 'UNDER_PROCESSING',
-                      UNDER_PROCESSING: 'PARTIALLY_COMPLETED',
-                      PARTIALLY_COMPLETED: 'UNDER_PROCESSING',
-                      NEEDS_CLARIFICATION: 'UNDER_PROCESSING',
-                    };
-                    return firstOptions[current] || 'UNDER_PROCESSING';
-                  })();
-                  setProgressStatus(initStatus as RecommendationStatus);
+                  setProgressStatus(progressTargets[0]);
                   setShowProgressModal(true);
                 }}
-                disabled={!isCoordinator || isLocked}
+                disabled={!canUpdateProgress}
                 className="btn-outline"
                 style={{
                   display: 'flex',
@@ -1418,15 +1503,17 @@ export const RecommendationDetails: React.FC = () => {
                   gap: '8px',
                   fontSize: '13px',
                   padding: '12px',
-                  backgroundColor: isCoordinator && !isLocked ? '#fff' : '#f8fafc',
-                  opacity: isCoordinator && !isLocked ? 1 : 0.5,
-                  cursor: isCoordinator && !isLocked ? 'pointer' : 'not-allowed',
+                  backgroundColor: canUpdateProgress ? '#fff' : '#f8fafc',
+                  opacity: canUpdateProgress ? 1 : 0.5,
+                  cursor: canUpdateProgress ? 'pointer' : 'not-allowed',
                   fontFamily: 'Cairo, sans-serif',
                 }}
                 title={isLocked ? "مغلقة ومعتمدة (مغلق لغير المشرف)" : "تحديث نسبة الإنجاز والتقدم"}
               >
                 📈 تحديث نسبة التقدم
               </button>
+                </>
+              )}
 
               <button
                 onClick={() => {
@@ -1539,7 +1626,7 @@ export const RecommendationDetails: React.FC = () => {
 
               <div>
                 <span style={{ color: '#718096', display: 'block', fontSize: '11px', marginBottom: '2px' }}>الجهة المكلفة بمتابعة التنفيذ:</span>
-                <strong style={{ color: '#0c2340' }}>هيئة التفتيش العام - مديرية المتابعة والتقييم</strong>
+                <strong style={{ color: '#0c2340' }}>هيئة تفتيش قوى الأمن الداخلي - مديرية المتابعة والتقييم</strong>
               </div>
 
               {campaignDetails && (
@@ -1732,6 +1819,83 @@ export const RecommendationDetails: React.FC = () => {
         </div>
 
       </div>
+
+      {/* ASSIGN ISSUED RECOMMENDATION MODAL */}
+      {showAssignModal && currentStatus === 'ISSUED' && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(12,35,64,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2000,
+          direction: 'rtl',
+          fontFamily: 'Cairo, sans-serif',
+        }}>
+          <div className="card" style={{ width: '450px', padding: '24px', backgroundColor: '#fff', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', border: 'none' }}>
+            <h3 style={{ margin: '0 0 16px', color: '#0c2340', fontWeight: 800, fontSize: '16px', borderBottom: '1px solid #edf2f7', paddingBottom: '12px' }}>
+              📤 إحالة / تكليف التوصية
+            </h3>
+
+            <form onSubmit={handleAssignRecommendation}>
+              <div style={{ marginBottom: '16px', padding: '10px 12px', borderRadius: '8px', backgroundColor: '#f8fafc', color: '#475569', fontSize: '12.5px' }}>
+                <div style={{ marginBottom: '4px', color: '#718096' }}>الجهة المختصة الحالية:</div>
+                <strong style={{ color: '#0c2340' }}>{data.assignedEntityNameSnapshot || 'الجهة المسجلة في التوصية'}</strong>
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '13px', color: '#4a5568', marginBottom: '8px', fontWeight: 700 }}>
+                  تاريخ استحقاق التنفيذ:
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={assignDueDate}
+                  onChange={(e) => setAssignDueDate(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '9px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e0',
+                    fontSize: '13px',
+                    fontFamily: 'Cairo, sans-serif',
+                  }}
+                />
+              </div>
+
+              {actionError && (
+                <div style={{ color: '#e53e3e', fontSize: '12px', marginBottom: '12px', backgroundColor: '#fff5f5', padding: '8px', borderRadius: '6px' }}>
+                  ⚠️ {actionError}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  type="submit"
+                  style={{ backgroundColor: '#0c2340', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 20px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', fontFamily: 'Cairo, sans-serif' }}
+                >
+                  تأكيد الإحالة
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAssignModal(false);
+                    setAssignDueDate('');
+                    setActionError('');
+                  }}
+                  style={{ backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e0', borderRadius: '8px', padding: '8px 20px', fontSize: '13px', cursor: 'pointer', fontFamily: 'Cairo, sans-serif' }}
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* UPDATE PROGRESS MODAL */}
       {showProgressModal && (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../services/api';
 import { useSocket } from '../context/SocketContext';
@@ -38,6 +38,8 @@ export const DashboardLayout: React.FC = () => {
   const navigate = useNavigate();
   const { socket, isConnected } = useSocket();
 
+  const location = useLocation();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => location.pathname.includes('/reports/designer'));
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
@@ -78,7 +80,6 @@ export const DashboardLayout: React.FC = () => {
     if (!socket) return;
 
     const handleNewNotification = (notif: any) => {
-      console.log('[Socket] New notification pushed:', notif);
       setUnreadCount(prev => prev + 1);
       setNotifications(prev => [notif, ...prev]);
     };
@@ -108,7 +109,6 @@ export const DashboardLayout: React.FC = () => {
   useEffect(() => {
     if (isConnected) return;
 
-    console.log('[Fallback Polling] Socket disconnected. Fallback polling enabled (90s interval).');
     const interval = setInterval(() => {
       fetchUnreadCount();
       if (showDropdown) {
@@ -179,14 +179,47 @@ export const DashboardLayout: React.FC = () => {
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <aside style={{
-        width: '260px',
+        width: sidebarCollapsed ? '56px' : '260px',
         backgroundColor: '#0c2340',
         color: '#ffffff',
         display: 'flex',
         flexDirection: 'column',
         borderLeft: '4px solid #d4af37',
         flexShrink: 0,
+        transition: 'width 0.2s ease',
+        overflow: 'hidden',
       }}>
+        <div style={{
+          padding: '10px',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          minHeight: '48px',
+        }}>
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#ffffff',
+              fontSize: '20px',
+              cursor: 'pointer',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            title={sidebarCollapsed ? 'فتح القائمة' : 'إغلاق القائمة'}
+          >
+            {sidebarCollapsed ? '☰' : '✕'}
+          </button>
+        </div>
+
+        {!sidebarCollapsed && (
+          <>
         <div style={{
           padding: '24px 20px',
           borderBottom: '1px solid rgba(255,255,255,0.1)',
@@ -209,7 +242,7 @@ export const DashboardLayout: React.FC = () => {
             ت
           </div>
           <div>
-            <h2 style={{ fontSize: '15px', fontWeight: 'bold' }}>هيئة التفتيش العام</h2>
+            <h2 style={{ fontSize: '15px', fontWeight: 'bold' }}>هيئة تفتيش قوى الأمن الداخلي</h2>
             <p style={{ fontSize: '11px', color: '#cbd5e0' }}>وزارة الداخلية العراقية</p>
           </div>
         </div>
@@ -224,7 +257,7 @@ export const DashboardLayout: React.FC = () => {
           <NavLink to="/inspections" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <span>📝</span> تنفيذ التفتيش
           </NavLink>
-          <NavLink to="/reports" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+          <NavLink to="/reports/designer" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
             <span>📄</span> التقارير
           </NavLink>
           <NavLink to="/recommendations/tracking" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
@@ -240,21 +273,37 @@ export const DashboardLayout: React.FC = () => {
           {(hasClearance('SECRET') || hasClearance('CONFIDENTIAL')) && (
             <>
               <div style={{ margin: '15px 10px 5px', fontSize: '11px', textTransform: 'uppercase', color: '#718096', fontWeight: 'bold' }}>
+                إدارة المفتشين والواجبات
+              </div>
+              <NavLink to="/inspectors-directory" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                <span>📇</span> دليل المفتشين
+              </NavLink>
+              <NavLink to="/inspection-groups" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                <span>👥</span> الفرق التفتيشية
+              </NavLink>
+              <NavLink to="/dashboard/inspector-workload" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                <span>📊</span> لوحة أعباء العمل
+              </NavLink>
+              <NavLink to="/dashboard/inspector-duties" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                <span>📋</span> سجل الواجبات الحالية
+              </NavLink>
+              <NavLink to="/dashboard/inspector-excellence" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                <span>🏆</span> لوحة التميز والنشاط
+              </NavLink>
+              <NavLink to="/dashboard/workload-balance" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                <span>⚖️</span> توازن أعباء العمل
+              </NavLink>
+            </>
+          )}
+
+          {(hasClearance('SECRET') || hasClearance('CONFIDENTIAL')) && (
+            <>
+              <div style={{ margin: '15px 10px 5px', fontSize: '11px', textTransform: 'uppercase', color: '#718096', fontWeight: 'bold' }}>
                 الذكاء التنفيذي والتحليلات
               </div>
               {hasClearance('SECRET') && (
                 <NavLink to="/dashboard/executive" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
                   <span>📈</span> اللوحة التنفيذية العليا
-                </NavLink>
-              )}
-              {hasClearance('CONFIDENTIAL') && (
-                <NavLink to="/dashboard/health" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-                  <span>🩺</span> تحليلات صحة التوصيات
-                </NavLink>
-              )}
-              {hasClearance('CONFIDENTIAL') && user?.role !== 'COORDINATOR' && (
-                <NavLink to="/dashboard/escalation" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-                  <span>🚨</span> لوحة متابعة التصعيد
                 </NavLink>
               )}
               {hasClearance('CONFIDENTIAL') && (
@@ -299,6 +348,8 @@ export const DashboardLayout: React.FC = () => {
         }}>
           النسخة المطورة v2.0
         </div>
+        </>
+        )}
       </aside>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: '#f4f6f9', overflowY: 'auto' }}>

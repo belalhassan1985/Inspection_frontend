@@ -14,6 +14,7 @@ const CampaignDetail = lazy(() => import('./pages/CampaignDetail').then(m => ({ 
 const Execution = lazy(() => import('./pages/Execution').then(m => ({ default: m.Execution })));
 const Review = lazy(() => import('./pages/Review').then(m => ({ default: m.Review })));
 const Reports = lazy(() => import('./pages/Reports').then(m => ({ default: m.Reports })));
+const ReportDesigner = lazy(() => import('./pages/ReportDesigner').then(m => ({ default: m.ReportDesigner })));
 const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })));
 const Profile = lazy(() => import('./pages/Profile').then(m => ({ default: m.Profile })));
 const Users = lazy(() => import('./pages/Users').then(m => ({ default: m.Users })));
@@ -25,6 +26,15 @@ const ExecutiveDashboard = lazy(() => import('./pages/ExecutiveDashboard').then(
 const HealthDashboard = lazy(() => import('./pages/HealthDashboard').then(m => ({ default: m.HealthDashboard })));
 const EscalationDashboard = lazy(() => import('./pages/EscalationDashboard').then(m => ({ default: m.EscalationDashboard })));
 const SlaDashboard = lazy(() => import('./pages/SlaDashboard').then(m => ({ default: m.SlaDashboard })));
+const InspectorWorkload = lazy(() => import('./pages/InspectorWorkload').then(m => ({ default: m.InspectorWorkload })));
+const InspectorDuties = lazy(() => import('./pages/InspectorDuties').then(m => ({ default: m.InspectorDuties })));
+const InspectorExcellence = lazy(() => import('./pages/InspectorExcellence').then(m => ({ default: m.InspectorExcellence })));
+const WorkloadBalance = lazy(() => import('./pages/WorkloadBalance').then(m => ({ default: m.WorkloadBalance })));
+const InspectorProfile = lazy(() => import('./pages/InspectorProfile').then(m => ({ default: m.InspectorProfile })));
+const InspectionGroups = lazy(() => import('./pages/InspectionGroups').then(m => ({ default: m.InspectionGroups })));
+const GroupDetail = lazy(() => import('./pages/GroupDetail').then(m => ({ default: m.GroupDetail })));
+const InspectorsDirectory = lazy(() => import('./pages/InspectorsDirectory').then(m => ({ default: m.InspectorsDirectory })));
+const Specializations = lazy(() => import('./pages/Specializations').then(m => ({ default: m.Specializations })));
 import { ClassificationRouteGuard } from './components/ClassificationRouteGuard';
 
 const LoadingSplash: React.FC = () => {
@@ -50,7 +60,7 @@ const LoadingSplash: React.FC = () => {
         marginBottom: '20px',
       }}></div>
       <h2 style={{ fontSize: '18px', fontWeight: 'bold' }}>جاري التحقق من الجلسة الأمنية...</h2>
-      <p style={{ fontSize: '13px', color: '#cbd5e0', marginTop: '5px' }}>هيئة التفتيش العام - وزارة الداخلية</p>
+      <p style={{ fontSize: '13px', color: '#cbd5e0', marginTop: '5px' }}>هيئة تفتيش قوى الأمن الداخلي - وزارة الداخلية</p>
       <style>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }
@@ -109,6 +119,10 @@ function AppContent() {
               <SlaDashboard />
             </ClassificationRouteGuard>
           } />
+          <Route path="dashboard/inspector-workload" element={<InspectorWorkload />} />
+          <Route path="dashboard/inspector-duties" element={<InspectorDuties />} />
+          <Route path="dashboard/inspector-excellence" element={<InspectorExcellence />} />
+          <Route path="dashboard/workload-balance" element={<WorkloadBalance />} />
           <Route path="hierarchy" element={<Hierarchy />} />
           <Route path="criteria" element={<Criteria />} />
           <Route path="campaigns" element={<Campaigns />} />
@@ -117,11 +131,17 @@ function AppContent() {
           <Route path="execution" element={<Navigate to="/inspections" replace />} />
           <Route path="review" element={<Review />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="reports/designer" element={<ReportDesigner />} />
           <Route path="settings" element={<Settings />} />
           <Route path="profile" element={<Profile />} />
           <Route path="users" element={<AdminRoute><Users /></AdminRoute>} />
           <Route path="inspectors" element={<AdminRoute><Inspectors /></AdminRoute>} />
           <Route path="audit-logs" element={<AdminRoute><AuditLogs /></AdminRoute>} />
+          <Route path="inspectors/:id/profile" element={<InspectorProfile />} />
+          <Route path="inspection-groups" element={<InspectionGroups />} />
+          <Route path="inspection-groups/:id" element={<GroupDetail />} />
+          <Route path="inspectors-directory" element={<InspectorsDirectory />} />
+          <Route path="specializations" element={<AdminRoute><Specializations /></AdminRoute>} />
           <Route path="recommendations/tracking" element={<RecommendationCenter />} />
           <Route path="recommendations/tracking/:id" element={<RecommendationDetails />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

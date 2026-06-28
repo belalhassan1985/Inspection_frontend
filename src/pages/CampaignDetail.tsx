@@ -12,7 +12,7 @@ export const CampaignDetail: React.FC = () => {
   const [campaign, setCampaign] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'info' | 'notes' | 'recommendations' | 'appendices' | 'evaluation'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'notes' | 'recommendations' | 'appendices' | 'evaluation' | 'groups'>('info');
 
   // Modal forms states
   const [showNoteModal, setShowNoteModal] = useState(false);
@@ -300,9 +300,18 @@ export const CampaignDetail: React.FC = () => {
                 <strong>أعضاء المفتشية الآخرين:</strong>
                 {campaign.members && campaign.members.length > 0 ? (
                   <ul style={{ margin: '5px 15px 0 0', padding: 0, listStyleType: 'circle' }}>
-                    {campaign.members.map((m: any) => (
-                      <li key={m.inspectorId}>{m.inspector?.fullName}</li>
-                    ))}
+                    {campaign.members.map((m: any) => {
+                      const roleLabel = m.role === 'LEADER' ? 'رئيس' : m.role === 'DEPUTY' ? 'مقرر' : 'عضو';
+                      const roleColor = m.role === 'LEADER' ? '#d4a837' : m.role === 'DEPUTY' ? '#3182ce' : '#718096';
+                      return (
+                        <li key={m.inspectorId}>
+                          {m.inspector?.fullName}
+                          <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '4px', backgroundColor: `${roleColor}20`, color: roleColor, fontWeight: 700, marginRight: '6px' }}>
+                            {roleLabel}
+                          </span>
+                        </li>
+                      );
+                    })}
                   </ul>
                 ) : (
                   <span style={{ color: '#718096', marginRight: '5px' }}>لا يوجد أعضاء إضافيين</span>
@@ -371,6 +380,13 @@ export const CampaignDetail: React.FC = () => {
         >
           ⭐ 9. التقييم الفني الميداني
         </button>
+        <button
+          onClick={() => setActiveTab('groups')}
+          className={`btn-outline ${activeTab === 'groups' ? 'active' : ''}`}
+          style={{ padding: '10px 20px', borderBottom: activeTab === 'groups' ? '3px solid var(--secondary-color)' : 'none', borderRadius: '6px 6px 0 0' }}
+        >
+          👥 المجموعات التفتيشية
+        </button>
       </div>
 
       {/* Tab Panels */}
@@ -380,7 +396,7 @@ export const CampaignDetail: React.FC = () => {
         <div className="card">
           <h3 className="m-b-15">ملخص المسار الإداري للجنة</h3>
           <p>
-            تأسست هذه اللجنة بناءً على توجيهات وزارة الداخلية / هيئة التفتيش العام لتقييم أداء الكيان التنظيمي 
+            تأسست هذه اللجنة بناءً على توجيهات وزارة الداخلية / هيئة تفتيش قوى الأمن الداخلي لتقييم أداء الكيان التنظيمي 
             (<strong>{campaign.entity?.name}</strong>) في شتى الجوانب الفنية والعملياتية والإدارية.
           </p>
           <div style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '15px' }}>
@@ -775,6 +791,11 @@ export const CampaignDetail: React.FC = () => {
         </div>
       )}
 
+      {/* Groups Tab */}
+      {activeTab === 'groups' && (
+        <GroupsTab campaignId={campaign.id} isEditable={isEditable} />
+      )}
+
       {/* NOTES MODAL */}
       {showNoteModal && (
         <div style={{
@@ -1018,3 +1039,157 @@ export const CampaignDetail: React.FC = () => {
     );
   }
 };
+
+// Groups Tab Component
+function GroupsTab({ campaignId, isEditable }: { campaignId: string; isEditable: boolean }) {
+  const [groups, setGroups] = useState<any[]>([]);
+  const [allInspectionGroups, setAllInspectionGroups] = useState<any[]>([]);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedGroupId, setSelectedGroupId] = useState<number | ''>('');
+  const [selectedRole, setSelectedRole] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const loadGroups = async () => {
+    setLoading(true);
+    try {
+      const [assigned, allGroups] = await Promise.all([
+        apiFetch(`/campaigns/${campaignId}/groups`),
+        apiFetch('/inspection-groups'),
+      ]);
+      setGroups(assigned);
+      setAllInspectionGroups(allGroups);
+    } catch (e: any) {
+      setError(e.message || 'فشل تحميل المجموعات');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadGroups(); }, [campaignId]);
+
+  const handleAssign = async () => {
+    if (!selectedGroupId) return;
+    try {
+      await apiFetch(`/campaigns/${campaignId}/groups`, {
+        method: 'POST',
+        body: JSON.stringify({ groupId: selectedGroupId, role: selectedRole || undefined }),
+      });
+      setShowAssignModal(false);
+      setSelectedGroupId('');
+      setSelectedRole('');
+      loadGroups();
+    } catch (e: any) {
+      setError(e.message || 'فشل ربط المجموعة');
+    }
+  };
+
+  const handleRemove = async (groupId: number) => {
+    if (!window.confirm('هل أنت متأكد من إزالة هذه المجموعة من الحملة؟')) return;
+    try {
+      await apiFetch(`/campaigns/${campaignId}/groups/${groupId}`, { method: 'DELETE' });
+      loadGroups();
+    } catch (e: any) {
+      setError(e.message || 'فشل إزالة المجموعة');
+    }
+  };
+
+  const assignedGroupIds = new Set(groups.map((g: any) => g.groupId));
+  const availableGroups = allInspectionGroups.filter((g: any) => !assignedGroupIds.has(g.id));
+
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+        <h3 style={{ margin: 0 }}>المجموعات التفتيشية المرتبطة بالحملة</h3>
+        {isEditable && (
+          <button onClick={() => setShowAssignModal(true)} className="btn-primary" style={{ padding: '6px 12px', fontSize: '13px' }}>
+            + ربط مجموعة
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <div style={{ backgroundColor: 'rgba(230,57,70,0.1)', color: 'var(--accent-color)', padding: '10px', borderRadius: '6px', marginBottom: '15px' }}>
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ padding: '30px', textAlign: 'center' }}>جاري تحميل المجموعات...</div>
+      ) : groups.length === 0 ? (
+        <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+          لا توجد مجموعات تفتيشية مرتبطة بهذه الحملة.
+        </div>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th style={{ textAlign: 'right' }}>اسم المجموعة</th>
+              <th style={{ textAlign: 'right' }}>كود المجموعة</th>
+              <th style={{ textAlign: 'center' }}>الدور</th>
+              {isEditable && <th style={{ textAlign: 'center' }}>الإجراءات</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((g: any) => (
+              <tr key={g.id}>
+                <td style={{ fontWeight: 'bold' }}>{g.group?.name || `مجموعة #${g.groupId}`}</td>
+                <td>{g.group?.code || '—'}</td>
+                <td style={{ textAlign: 'center' }}>
+                  <span style={{ fontSize: '12px', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#edf2f7', color: '#4a5568', fontWeight: 600 }}>
+                    {g.role || 'عامة'}
+                  </span>
+                </td>
+                {isEditable && (
+                  <td style={{ textAlign: 'center' }}>
+                    <button onClick={() => handleRemove(g.groupId)} className="btn-danger" style={{ padding: '4px 8px', fontSize: '11px' }}>
+                      إزالة 🗑️
+                    </button>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {/* Assign Modal */}
+      {showAssignModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000
+        }}>
+          <div className="card" style={{ maxWidth: '500px', width: '100%', borderTop: '6px solid var(--primary-color)' }}>
+            <h3 style={{ color: 'var(--primary-color)', borderBottom: '1px dashed var(--border-color)', paddingBottom: '10px' }}>
+              ربط مجموعة تفتيشية بالحملة
+            </h3>
+            <div style={{ marginTop: '15px' }}>
+              <div className="form-group">
+                <label style={{ fontWeight: 'bold' }}>المجموعة التفتيشية</label>
+                <select value={selectedGroupId} onChange={(e) => setSelectedGroupId(e.target.value ? parseInt(e.target.value) : '')} required>
+                  <option value="">(اختر مجموعة)</option>
+                  {availableGroups.map((g: any) => (
+                    <option key={g.id} value={g.id}>{g.name} {g.code ? `(${g.code})` : ''}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group" style={{ marginTop: '15px' }}>
+                <label style={{ fontWeight: 'bold' }}>الدور (اختياري)</label>
+                <input
+                  type="text"
+                  value={selectedRole}
+                  onChange={(e) => setSelectedRole(e.target.value)}
+                  placeholder="مثال: مجموعة التدقيق الرئيسية"
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '15px' }}>
+                <button type="button" onClick={() => setShowAssignModal(false)} className="btn-outline">إلغاء</button>
+                <button type="button" onClick={handleAssign} className="btn-primary" disabled={!selectedGroupId}>حفظ</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

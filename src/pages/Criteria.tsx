@@ -193,6 +193,73 @@ export const Criteria: React.FC = () => {
     tableSchema: [] as Array<{ key: string; label: string; type: string; required: boolean; role: string; tempKey?: string }>,
   });
 
+  // Report states
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportHtmlContent, setReportHtmlContent] = useState('');
+  const [reportLoading, setReportLoading] = useState(false);
+  const [downloading, setDownloading] = useState<'pdf' | 'word' | null>(null);
+
+  const handleViewReport = async () => {
+    if (!selectedTemplateId) return;
+    setReportLoading(true);
+    setError('');
+    try {
+      const response = await fetch(`http://localhost:3001/reports/criteria-report/${selectedTemplateId}/html`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      if (!response.ok) throw new Error('فشل تحميل التقرير');
+      const html = await response.text();
+      setReportHtmlContent(html);
+      setShowReportModal(true);
+    } catch (err: any) {
+      setError(err.message || 'فشل تحميل التقرير');
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!selectedTemplateId) return;
+    setDownloading('pdf');
+    setError('');
+    try {
+      const blob: Blob = await apiFetch(`/reports/criteria-report/${selectedTemplateId}/pdf`);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `تقرير_أسس_ومعايير_التفتيش_${selectedTemplateId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setError(err.message || 'حدث خطأ أثناء تحميل التقرير بصيغة PDF');
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  const handleDownloadWord = async () => {
+    if (!selectedTemplateId) return;
+    setDownloading('word');
+    setError('');
+    try {
+      const blob: Blob = await apiFetch(`/reports/criteria-report/${selectedTemplateId}/word`);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `تقرير_أسس_ومعايير_التفتيش_${selectedTemplateId}.docx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setError(err.message || 'حدث خطأ أثناء تحميل التقرير بصيغة Word');
+    } finally {
+      setDownloading(null);
+    }
+  };
+
   const isEditable = user?.role === 'ADMIN' || user?.role === 'EDITOR';
 
   const loadTemplates = async () => {
@@ -739,6 +806,38 @@ export const Criteria: React.FC = () => {
                     🗑️ حذف
                   </button>
                 )}
+              </>
+            )}
+            {selectedTemplateId && (
+              <>
+                <span style={{ width: '1px', height: '28px', backgroundColor: 'var(--border-color)', display: 'inline-block' }}></span>
+                <button
+                  onClick={handleViewReport}
+                  className="btn-outline"
+                  style={{ fontSize: '13px', padding: '8px 14px' }}
+                  title="عرض التقرير"
+                  disabled={reportLoading}
+                >
+                  {reportLoading ? 'جاري التحميل...' : '📄 عرض التقرير'}
+                </button>
+                <button
+                  onClick={handleDownloadPdf}
+                  className="btn-outline"
+                  style={{ fontSize: '13px', padding: '8px 14px' }}
+                  title="تصدير PDF"
+                  disabled={downloading === 'pdf'}
+                >
+                  {downloading === 'pdf' ? '...جاري' : '📥 PDF'}
+                </button>
+                <button
+                  onClick={handleDownloadWord}
+                  className="btn-outline"
+                  style={{ fontSize: '13px', padding: '8px 14px' }}
+                  title="تصدير Word"
+                  disabled={downloading === 'word'}
+                >
+                  {downloading === 'word' ? '...جاري' : '📥 Word'}
+                </button>
               </>
             )}
           </div>
@@ -1524,6 +1623,63 @@ export const Criteria: React.FC = () => {
                 <button type="submit" className="btn-primary" style={{ padding: '8px 20px' }}>حفظ التعديلات</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* REPORT MODAL */}
+      {showReportModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            width: '95%', maxWidth: '1200px', height: '95vh',
+            display: 'flex', flexDirection: 'column',
+            backgroundColor: '#fff', borderRadius: '12px',
+            overflow: 'hidden', direction: 'rtl', textAlign: 'right'
+          }}>
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '12px 20px', borderBottom: '1px solid var(--border-color)',
+              backgroundColor: '#f8fafc'
+            }}>
+              <h3 style={{ margin: 0, fontSize: '16px', color: 'var(--primary-color)' }}>
+                📄 تقرير أسس ومعايير التفتيش المعتمدة
+              </h3>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={handleDownloadPdf}
+                  className="btn-outline"
+                  style={{ fontSize: '12px', padding: '6px 14px' }}
+                  disabled={downloading === 'pdf'}
+                >
+                  {downloading === 'pdf' ? '...جاري' : '📥 تصدير PDF'}
+                </button>
+                <button
+                  onClick={handleDownloadWord}
+                  className="btn-outline"
+                  style={{ fontSize: '12px', padding: '6px 14px' }}
+                  disabled={downloading === 'word'}
+                >
+                  {downloading === 'word' ? '...جاري' : '📥 تصدير Word'}
+                </button>
+                <button
+                  onClick={() => setShowReportModal(false)}
+                  className="btn-danger"
+                  style={{ fontSize: '12px', padding: '6px 14px' }}
+                >
+                  ✕ إغلاق
+                </button>
+              </div>
+            </div>
+            <div style={{ flex: 1, overflow: 'auto' }}>
+              <iframe
+                srcDoc={reportHtmlContent}
+                style={{ width: '100%', height: '100%', border: 'none' }}
+                title="تقرير أسس ومعايير التفتيش"
+              />
+            </div>
           </div>
         </div>
       )}

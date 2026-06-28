@@ -8,10 +8,10 @@ interface ClassificationRouteGuardProps {
 }
 
 const CLASSIFICATION_LABELS: Record<string, string> = {
-  RESTRICTED: 'محدود / مقيد (Restricted)',
-  CONFIDENTIAL: 'سري (Confidential)',
-  SECRET: 'سري للغاية (Secret)',
-  TOP_SECRET: 'سري للغاية وممتاز (Top Secret)',
+  RESTRICTED: 'محدود / مقيد',
+  CONFIDENTIAL: 'سري',
+  SECRET: 'سري للغاية',
+  TOP_SECRET: 'سري للغاية وممتاز',
 };
 
 export const ClassificationRouteGuard: React.FC<ClassificationRouteGuardProps> = ({

@@ -6,36 +6,28 @@ import {
   getLevel2ArabicLetter,
   getLevel3Ordinal,
   getLevel4Number,
-  getLevel5ArabicLetter,
   getIndentation,
   DEFAULT_FORMATTING_CONFIG,
-} from '../utils/reportNumbering';const parseCommitteeMember = (member: string) => {
-  const cleanMember = member.replace(/&nbsp;/g, ' ').replace(/<[^>]*>/g, '').trim();
-  const parts = cleanMember.split(/\s{2,}/);
-  if (parts.length >= 2) {
-    return {
-      name: parts[0].trim(),
-      role: parts.slice(1).join(' ').trim(),
-    };
-  }
-  const roles = [
-    'رئيس اللجنة',
-    'رئيـس اللجنة',
-    'معاون اللجنة',
-    'معـاون اللجنة',
-    'عضو اللجنة',
-    'عضو',
-    'عضواً',
-    'عضـــــــــواً',
-  ];
-  for (const role of roles) {
-    if (cleanMember.endsWith(role)) {
-      const name = cleanMember.substring(0, cleanMember.length - role.length).trim();
-      return { name, role };
-    }
-  }
-  return { name: cleanMember, role: '' };
-};
+  formatArabicTableValue,
+} from '../utils/reportNumbering';
+import { DetailedTablesView } from '../components/reportView/DetailedTablesView';
+import { NarrativeText } from '../components/reportView/NarrativeText';
+import { SignaturesBlock } from '../components/reportView/SignaturesBlock';
+import { FindingList } from '../components/reportView/FindingList';
+import { ManualFindingList } from '../components/reportView/ManualFindingList';
+import { SectionTitle } from '../components/reportView/SectionTitle';
+import { SubsectionTitle } from '../components/reportView/SubsectionTitle';
+import { ReportHeader } from '../components/reportView/ReportHeader';
+import { ReportTitle } from '../components/reportView/ReportTitle';
+import { AssignmentSection } from '../components/reportView/AssignmentSection';
+import { CommitteeSection } from '../components/reportView/CommitteeSection';
+import { PurposeSection } from '../components/reportView/PurposeSection';
+import { VisitDateSection } from '../components/reportView/VisitDateSection';
+import { SummaryTablesSection } from '../components/reportView/SummaryTablesSection';
+import { OfficialNotesSection } from '../components/reportView/OfficialNotesSection';
+import { RecommendationsSection } from '../components/reportView/RecommendationsSection';
+import { AppendicesSection } from '../components/reportView/AppendicesSection';
+import { FinalEvaluationSection } from '../components/reportView/FinalEvaluationSection';
 
 export const Reports: React.FC = () => {
   const [campaigns, setCampaigns] = useState<any[]>([]);
@@ -43,6 +35,7 @@ export const Reports: React.FC = () => {
   const [reportPayload, setReportPayload] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+
   const [error, setError] = useState('');
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1029,73 +1022,6 @@ export const Reports: React.FC = () => {
   const formattingConfig = reportPayload?.formatting || DEFAULT_FORMATTING_CONFIG;
   const officialObservationSectionIndex = reportPayload?.sections?.findIndex((sec: any) => sec.id === 'manual-notes' || sec.isManual) ?? -1;
   const officialObservationSection = officialObservationSectionIndex >= 0 ? reportPayload?.sections?.[officialObservationSectionIndex] : null;
-  const renderOfficialObservationItems = (items: string[] = [], listType: string) => {
-    if (editMode && officialObservationSectionIndex >= 0) {
-      return (
-        <div style={{ marginRight: getIndentation(3, formattingConfig), marginTop: '6px' }}>
-          {items.map((text: string, idx: number) => (
-            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-              <span style={{ minWidth: '52px', fontWeight: 'bold', color: '#0c2340' }}>{getLevel3Ordinal(idx + 1, formattingConfig)}</span>
-              <input
-                type="text"
-                value={text}
-                onChange={(e) => updateFindingListItem(officialObservationSectionIndex, -1, listType, idx, e.target.value)}
-                style={{ flex: 1, border: '1px dashed #cbd5e0', padding: '4px 6px', fontSize: '13px', fontFamily: 'inherit' }}
-              />
-              <button
-                type="button"
-                onClick={() => moveFindingListItemUp(officialObservationSectionIndex, -1, listType, idx)}
-                disabled={idx === 0}
-                className="no-print"
-                style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                title="نقل للأعلى"
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                onClick={() => moveFindingListItemDown(officialObservationSectionIndex, -1, listType, idx)}
-                disabled={idx === items.length - 1}
-                className="no-print"
-                style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                title="نقل للأسفل"
-              >
-                ↓
-              </button>
-              <button
-                type="button"
-                onClick={() => removeFindingListItem(officialObservationSectionIndex, -1, listType, idx)}
-                className="no-print"
-                style={{ backgroundColor: '#fed7d7', color: '#c53030', border: 'none', padding: '3px 8px', cursor: 'pointer', borderRadius: '4px', fontSize: '11px' }}
-              >
-                حذف
-              </button>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => addFindingListItem(officialObservationSectionIndex, -1, listType)}
-            className="btn-outline no-print"
-            style={{ padding: '4px 10px', fontSize: '12px', marginTop: '4px' }}
-          >
-            إضافة بند
-          </button>
-        </div>
-      );
-    }
-
-    return items.length > 0 ? (
-      items.map((text: string, idx: number) => (
-        <div key={idx} style={{ marginRight: getIndentation(3, formattingConfig), marginBottom: '6px', fontSize: '13.5px', textAlign: 'justify' }}>
-          {getLevel3Ordinal(idx + 1, formattingConfig)} {text}
-        </div>
-      ))
-    ) : (
-      <div style={{ marginRight: getIndentation(3, formattingConfig), marginBottom: '6px', fontSize: '13.5px', color: '#718096' }}>
-        لا توجد ملاحظات ضمن هذا التصنيف.
-      </div>
-    );
-  };
 
 
   return (
@@ -1298,359 +1224,67 @@ export const Reports: React.FC = () => {
             {isEducation ? (
               <div>
                 {/* Header Section */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', borderBottom: '2px solid #000', paddingBottom: '15px' }}>
-                  <div style={{ width: '220px', fontSize: '13px' }}>
-                    <strong>جمهورية العراق</strong><br />
-                    <strong>وزارة الداخلية</strong><br />
-                    <strong>هيئة تفتيش قوى الامن الداخلي</strong>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <img src={ministryLogo} alt="وزارة الداخلية" style={{ height: '90px', width: 'auto', objectFit: 'contain' }} />
-                  </div>
-                  <div style={{ width: '220px', fontSize: '13px', textAlign: 'left', direction: 'rtl' }}>
-                    {editMode ? (
-                      <>
-                        <div style={{ marginBottom: '5px' }}>
-                          <strong>التاريخ:</strong>{' '}
-                          <input
-                            type="text"
-                            value={reportPayload.startDateText ?? (reportPayload.startDate ? new Date(reportPayload.startDate).toLocaleDateString('ar-EG') : '')}
-                            onChange={(e) => updatePayloadField('startDateText', e.target.value)}
-                            style={{ border: '1px dashed #cbd5e0', padding: '2px', width: '130px', fontSize: '12px', fontFamily: 'inherit' }}
-                          />
-                        </div>
-                        <div>
-                          <strong>العدد:</strong>{' '}
-                          <input
-                            type="text"
-                            value={reportPayload.formationNumber ?? ''}
-                            onChange={(e) => updatePayloadField('formationNumber', e.target.value)}
-                            style={{ border: '1px dashed #cbd5e0', padding: '2px', width: '130px', fontSize: '12px', fontFamily: 'inherit' }}
-                          />
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div><strong>التاريخ:</strong> {reportPayload.startDateText ?? (reportPayload.startDate ? new Date(reportPayload.startDate).toLocaleDateString('ar-EG') : '')}</div>
-                        <div><strong>العدد:</strong> {reportPayload.formationNumber || '—'}</div>
-                      </>
-                    )}
-                  </div>
-                </div>
+                <ReportHeader
+                  editMode={editMode}
+                  startDateText={reportPayload.startDateText}
+                  startDate={reportPayload.startDate}
+                  formationNumber={reportPayload.formationNumber}
+                  onFieldChange={updatePayloadField}
+                />
 
                 {/* Report Title */}
-                <div style={{ textAlign: 'center', marginBottom: '35px' }}>
-                  {editMode ? (
-                    <input
-                      type="text"
-                      value={reportPayload.title}
-                      onChange={(e) => updatePayloadField('title', e.target.value)}
-                      style={{
-                        fontSize: '20px',
-                        fontWeight: 'bold',
-                        width: '100%',
-                        textAlign: 'center',
-                        border: '1px dashed #cbd5e0',
-                        borderRadius: '4px',
-                        padding: '5px',
-                        fontFamily: 'inherit',
-                      }}
-                    />
-                  ) : (
-                    <h1 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 10px 0', textDecoration: 'underline', textUnderlineOffset: '8px' }}>
-                      {reportPayload.title}
-                    </h1>
-                  )}
-                </div>
+                <ReportTitle
+                  editMode={editMode}
+                  title={reportPayload.title}
+                  onTitleChange={(value) => updatePayloadField('title', value)}
+                />
 
                 {/* 1. التكليف */}
-                <div style={{ marginBottom: '20px' }}>
-                  <h3 className="section-num">{getLevel1Number(1, formattingConfig)} التكلـــــيف</h3>
-                  <div className="section-body">
-                    {editMode ? (
-                      <textarea
-                        value={reportPayload.assignmentText}
-                        onChange={(e) => updatePayloadField('assignmentText', e.target.value)}
-                        rows={3}
-                        style={{
-                          width: '100%',
-                          border: '1px dashed #cbd5e0',
-                          borderRadius: '4px',
-                          padding: '8px',
-                          fontFamily: 'inherit',
-                          fontSize: '14px',
-                        }}
-                      />
-                    ) : (
-                      reportPayload.assignmentText
-                    )}
-                  </div>
-                </div>
+                <AssignmentSection
+                  editMode={editMode}
+                  number={getLevel1Number(1, formattingConfig)}
+                  assignmentText={reportPayload.assignmentText}
+                  onAssignmentChange={(value) => updatePayloadField('assignmentText', value)}
+                />
 
                 {/* 2. التأليف */}
-                <div style={{ marginBottom: '20px' }}>
-                  <h3 className="section-num">{getLevel1Number(2, formattingConfig)} التــــأليف</h3>
-                  <div className="section-body">
-                    {editMode ? (
-                      <div>
-                        {reportPayload.committeeMembers.map((member: string, idx: number) => (
-                          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                            <input
-                              type="text"
-                              value={member.replace(/&nbsp;/g, ' ')}
-                              onChange={(e) => updateCommitteeMember(idx, e.target.value)}
-                              style={{
-                                flex: 1,
-                                border: '1px dashed #cbd5e0',
-                                borderRadius: '4px',
-                                padding: '5px',
-                                fontFamily: 'inherit',
-                                fontSize: '14px',
-                              }}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeCommitteeMember(idx)}
-                              className="no-print"
-                              style={{
-                                backgroundColor: '#fed7d7',
-                                color: '#c53030',
-                                border: 'none',
-                                borderRadius: '4px',
-                                padding: '5px 10px',
-                                cursor: 'pointer',
-                              }}
-                            >
-                              حذف
-                            </button>
-                          </div>
-                        ))}
-                        <button
-                          type="button"
-                          onClick={addCommitteeMember}
-                          className="btn-outline no-print"
-                          style={{ padding: '6px 12px', fontSize: '12px', marginTop: '5px' }}
-                        >
-                          ➕ إضافة عضو لجنة
-                        </button>
-                      </div>
-                    ) : (
-                      <table style={{ width: '100%', maxWidth: '650px', borderCollapse: 'collapse', border: 'none', marginTop: '10px' }}>
-                        <tbody>
-                          {reportPayload.committeeMembers.map((member: string, idx: number) => {
-                            const parsed = parseCommitteeMember(member);
-                            return (
-                              <tr key={idx}>
-                                <td style={{ border: 'none', padding: '4px 0', fontSize: '15px', width: '60%', textAlign: 'right' }}>
-                                  {parsed.name}
-                                </td>
-                                <td style={{ border: 'none', padding: '4px 0', fontSize: '15px', width: '40%', textAlign: 'right' }}>
-                                  {parsed.role}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                </div>
+                <CommitteeSection
+                  editMode={editMode}
+                  number={getLevel1Number(2, formattingConfig)}
+                  committeeMembers={reportPayload.committeeMembers}
+                  onMemberChange={updateCommitteeMember}
+                  onAddMember={addCommitteeMember}
+                  onRemoveMember={removeCommitteeMember}
+                />
 
                 {/* 3. الغاية */}
-                <div style={{ marginBottom: '25px' }}>
-                  <h3 className="section-num">{getLevel1Number(3, formattingConfig)} الغــــاية</h3>
-                  <div className="section-body">
-                    {editMode ? (
-                      <textarea
-                        value={reportPayload.purposeText}
-                        onChange={(e) => updatePayloadField('purposeText', e.target.value)}
-                        rows={3}
-                        style={{
-                          width: '100%',
-                          border: '1px dashed #cbd5e0',
-                          borderRadius: '4px',
-                          padding: '8px',
-                          fontFamily: 'inherit',
-                          fontSize: '14px',
-                        }}
-                      />
-                    ) : (
-                      reportPayload.purposeText
-                    )}
-                  </div>
-                </div>
+                <PurposeSection
+                  editMode={editMode}
+                  number={getLevel1Number(3, formattingConfig)}
+                  purposeText={reportPayload.purposeText}
+                  onPurposeChange={(value) => updatePayloadField('purposeText', value)}
+                />
 
                 {/* 4. تاريخ التفتيش */}
-                <div style={{ marginBottom: '20px' }}>
-                  <h3 className="section-num">{getLevel1Number(4, formattingConfig)} تاريخ التفتيش</h3>
-                  <div className="section-body">
-                    {editMode ? (
-                      <input
-                        type="text"
-                        value={reportPayload.durationText}
-                        onChange={(e) => updatePayloadField('durationText', e.target.value)}
-                        style={{
-                          width: '100%',
-                          border: '1px dashed #cbd5e0',
-                          borderRadius: '4px',
-                          padding: '5px',
-                          fontFamily: 'inherit',
-                          fontSize: '14px',
-                        }}
-                      />
-                    ) : (
-                      reportPayload.durationText
-                    )}
-                  </div>
-                </div>
+                <VisitDateSection
+                  editMode={editMode}
+                  number={getLevel1Number(4, formattingConfig)}
+                  durationText={reportPayload.durationText}
+                  onDurationChange={(value) => updatePayloadField('durationText', value)}
+                />
 
                 {/* 5. جدول المدراء والآمرين */}
-                <div style={{ marginBottom: '25px' }}>
-                  <h3 className="section-num">{getLevel1Number(5, formattingConfig)} جدول المدراء والآمرين وشاغلي المناصب الأساسية</h3>
-                  <div className="section-body">
-                    <table className="military-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', border: '1px solid #000' }}>
-                      <thead>
-                        <tr style={{ backgroundColor: '#f2f2f2' }}>
-                          <th style={{ padding: '8px', border: '1px solid #000', textAlign: 'center', width: '5%', fontWeight: 'bold' }}>ت</th>
-                          <th style={{ padding: '8px', border: '1px solid #000', textAlign: 'center', width: '20%', fontWeight: 'bold' }}>المنصب</th>
-                          <th style={{ padding: '8px', border: '1px solid #000', textAlign: 'center', width: '10%', fontWeight: 'bold' }}>الرتبة</th>
-                          <th style={{ padding: '8px', border: '1px solid #000', textAlign: 'center', width: '15%', fontWeight: 'bold' }}>الاسم الكامل</th>
-                          <th style={{ padding: '8px', border: '1px solid #000', textAlign: 'center', width: '10%', fontWeight: 'bold' }}>الرقم الإحصائي</th>
-                          <th style={{ padding: '8px', border: '1px solid #000', textAlign: 'center', width: '15%', fontWeight: 'bold' }}>تاريخ إشغال المنصب</th>
-                          <th style={{ padding: '8px', border: '1px solid #000', textAlign: 'center', width: '10%', fontWeight: 'bold' }}>نوع الإشغال</th>
-                          <th style={{ padding: '8px', border: '1px solid #000', textAlign: 'center', width: '10%', fontWeight: 'bold' }}>التحصيل الدراسي</th>
-                          <th style={{ padding: '8px', border: '1px solid #000', textAlign: 'center', width: '15%', fontWeight: 'bold' }}>الملاحظات</th>
-                          {editMode && <th className="no-print" style={{ padding: '8px', border: '1px solid #000', textAlign: 'center', width: '5%', fontWeight: 'bold' }}>إجراء</th>}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {reportPayload.positions.map((pos: any, index: number) => (
-                          <tr key={pos.id}>
-                            <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'center' }}>{index + 1}</td>
-                            {editMode ? (
-                              <>
-                                <td style={{ padding: '4px', border: '1px solid #000' }}>
-                                  <input
-                                    type="text"
-                                    value={pos.positionName}
-                                    onChange={(e) => updatePositionField(index, 'positionName', e.target.value)}
-                                    style={{ width: '100%', border: 'none', padding: '4px', fontFamily: 'inherit', fontWeight: 'bold' }}
-                                  />
-                                </td>
-                                <td style={{ padding: '4px', border: '1px solid #000' }}>
-                                  <input
-                                    type="text"
-                                    value={pos.rank || ''}
-                                    onChange={(e) => updatePositionField(index, 'rank', e.target.value)}
-                                    style={{ width: '100%', border: 'none', padding: '4px', fontFamily: 'inherit', textAlign: 'center' }}
-                                  />
-                                </td>
-                                <td style={{ padding: '4px', border: '1px solid #000' }}>
-                                  <input
-                                    type="text"
-                                    value={pos.positionHolder || ''}
-                                    onChange={(e) => updatePositionField(index, 'positionHolder', e.target.value)}
-                                    style={{ width: '100%', border: 'none', padding: '4px', fontFamily: 'inherit' }}
-                                  />
-                                </td>
-                                <td style={{ padding: '4px', border: '1px solid #000' }}>
-                                  <input
-                                    type="text"
-                                    value={pos.statisticalNumber || ''}
-                                    onChange={(e) => updatePositionField(index, 'statisticalNumber', e.target.value)}
-                                    style={{ width: '100%', border: 'none', padding: '4px', fontFamily: 'inherit', textAlign: 'center' }}
-                                  />
-                                </td>
-                                <td style={{ padding: '4px', border: '1px solid #000' }}>
-                                  <input
-                                    type="text"
-                                    value={pos.joinedDate || ''}
-                                    onChange={(e) => updatePositionField(index, 'joinedDate', e.target.value)}
-                                    style={{ width: '100%', border: 'none', padding: '4px', fontFamily: 'inherit', textAlign: 'center' }}
-                                  />
-                                </td>
-                                <td style={{ padding: '4px', border: '1px solid #000' }}>
-                                  <input
-                                    type="text"
-                                    value={pos.positionStatus || ''}
-                                    onChange={(e) => updatePositionField(index, 'positionStatus', e.target.value)}
-                                    style={{ width: '100%', border: 'none', padding: '4px', fontFamily: 'inherit', textAlign: 'center' }}
-                                  />
-                                </td>
-                                <td style={{ padding: '4px', border: '1px solid #000' }}>
-                                  <input
-                                    type="text"
-                                    value={pos.education || ''}
-                                    onChange={(e) => updatePositionField(index, 'education', e.target.value)}
-                                    style={{ width: '100%', border: 'none', padding: '4px', fontFamily: 'inherit', textAlign: 'center' }}
-                                  />
-                                </td>
-                                <td style={{ padding: '4px', border: '1px solid #000' }}>
-                                  <input
-                                    type="text"
-                                    value={pos.notes || ''}
-                                    onChange={(e) => updatePositionField(index, 'notes', e.target.value)}
-                                    style={{ width: '100%', border: 'none', padding: '4px', fontFamily: 'inherit' }}
-                                  />
-                                </td>
-                                <td className="no-print" style={{ padding: '4px', border: '1px solid #000', textAlign: 'center' }}>
-                                  <button
-                                    type="button"
-                                    onClick={() => removePositionRow(index)}
-                                    style={{ backgroundColor: '#fed7d7', color: '#c53030', border: 'none', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer' }}
-                                  >
-                                    حذف
-                                  </button>
-                                </td>
-                              </>
-                            ) : (
-                              <>
-                                <td style={{ padding: '8px', border: '1px solid #000', fontWeight: 'bold' }}>{pos.positionName}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'center' }}>{pos.rank || '—'}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>{pos.positionHolder || '—'}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'center' }}>{pos.statisticalNumber || '—'}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'center' }}>
-                                  {(() => {
-                                    if (!pos.joinedDate) return '—';
-                                    const d = new Date(pos.joinedDate);
-                                    if (isNaN(d.getTime())) return pos.joinedDate;
-                                    return d.toLocaleDateString('ar-EG');
-                                  })()}
-                                </td>
-                                <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'center' }}>{pos.positionStatus || '—'}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'center' }}>{pos.education || '—'}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>{pos.notes || '—'}</td>
-                              </>
-                            )}
-                          </tr>
-                        ))}
-                        {reportPayload.positions.length === 0 && (
-                          <tr>
-                            <td colSpan={editMode ? 10 : 9} style={{ padding: '10px', textAlign: 'center', color: '#718096' }}>
-                              لا توجد مناصب مسجلة في الهيكل الإداري حالياً.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                    {editMode && (
-                      <div className="no-print" style={{ marginTop: '10px' }}>
-                        <button
-                          type="button"
-                          onClick={addPositionRow}
-                          className="btn-outline"
-                          style={{ padding: '6px 12px', fontSize: '12px' }}
-                        >
-                          ➕ إضافة منصب جديد للجدول
-                        </button>
-                      </div>
-                    )}
-
-                  </div>
-                </div>
+                <SummaryTablesSection
+                  editMode={editMode}
+                  number={getLevel1Number(5, formattingConfig)}
+                  positions={reportPayload.positions}
+                  onPositionFieldChange={updatePositionField}
+                  onAddRow={addPositionRow}
+                  onRemoveRow={removePositionRow}
+                />
 
                 {/* 6. المواقف الرسمية ونسب التكامل الفعلي */}
-                {(reportPayload.personnelRows.length > 0 || editMode) && (
+                {false && (reportPayload.personnelRows.length > 0 || editMode) && (
                   <div style={{ marginBottom: '25px' }}>
                     <h3 className="section-num">{getLevel1Number(6, formattingConfig)} المواقف الرسمية ونسب التكامل الفعلي</h3>
                     <div className="section-body">
@@ -1726,11 +1360,11 @@ export const Reports: React.FC = () => {
                                 ) : (
                                   <>
                                     <td style={{ padding: '8px', border: '1px solid #000', fontWeight: 'bold', textAlign: 'right' }}>{row.category}</td>
-                                    <td style={{ padding: '8px', border: '1px solid #000' }}>{nominal}</td>
-                                    <td style={{ padding: '8px', border: '1px solid #000' }}>{actual}</td>
-                                    <td style={{ padding: '8px', border: '1px solid #000', color: '#2b6cb0', fontWeight: 'bold' }}>{increase}</td>
-                                    <td style={{ padding: '8px', border: '1px solid #000', color: '#c53030', fontWeight: 'bold' }}>{deficit}</td>
-                                    <td style={{ padding: '8px', border: '1px solid #000', fontWeight: 'bold' }}>{parseFloat(percentage).toFixed(1)}%</td>
+                                    <td style={{ padding: '8px', border: '1px solid #000' }}>{formatArabicTableValue(nominal)}</td>
+                                    <td style={{ padding: '8px', border: '1px solid #000' }}>{formatArabicTableValue(actual)}</td>
+                                    <td style={{ padding: '8px', border: '1px solid #000', color: '#2b6cb0', fontWeight: 'bold' }}>{formatArabicTableValue(increase)}</td>
+                                    <td style={{ padding: '8px', border: '1px solid #000', color: '#c53030', fontWeight: 'bold' }}>{formatArabicTableValue(deficit)}</td>
+                                    <td style={{ padding: '8px', border: '1px solid #000', fontWeight: 'bold' }}>{formatArabicTableValue(parseFloat(percentage).toFixed(1), { percentage: true })}</td>
                                   </>
                                 )}
                               </tr>
@@ -1756,7 +1390,7 @@ export const Reports: React.FC = () => {
 
                 {/* 7. تفاصيل التفتيش */}
                 <div style={{ marginBottom: '25px' }}>
-                  <h3 className="section-num">{getLevel1Number(7, formattingConfig)} تفاصيل التفتيش</h3>
+                  <h3 className="section-num">{getLevel1Number(6, formattingConfig)} تفاصيل التفتيش</h3>
                   <div className="section-body">
                     بناءً على التوجيهات الرسمية، تم تجميع وتصنيف كافة نتائج التفتيش الميداني وأسس التقييم والخيارات المرصودة والملاحظات والدرجات للمنطقة الأمنية المعنية بشكل منظم ومبوب كما يلي:
                     <br /><br />
@@ -1867,274 +1501,85 @@ export const Reports: React.FC = () => {
                               </div>
                             ) : (
                               sec.visible && (
-                                <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#0c2340', borderBottom: '1.5px solid #0c2340', paddingBottom: '3px', marginBottom: '10px' }}>
-                                  {sec.numbering || getLevel2ArabicLetter(level2Idx++, formattingConfig)} {sec.title}
-                                </div>
+                                <SectionTitle
+                                  number={sec.numbering || getLevel2ArabicLetter(level2Idx++, formattingConfig)}
+                                  title={sec.title}
+                                />
                               )
                             )}
 
                             {!editMode && sec.visible && sec.narrativeText && (
-                              <div style={{ marginRight: getIndentation(3, formattingConfig), marginBottom: '15px', fontSize: '13.5px', whiteSpace: 'pre-line', textAlign: 'justify' }}>
-                                {sec.narrativeText}
-                              </div>
+                              <NarrativeText text={sec.narrativeText} variant="section" formattingConfig={formattingConfig} />
                             )}
 
                             {sec.isManual ? (
                               <div style={{ marginRight: getIndentation(3, formattingConfig) }}>
                                 {(sec.showPositives || editMode) && (
-                                  <div style={{ marginTop: '8px', marginRight: getIndentation(4, formattingConfig) }}>
-                                    <div style={{ fontWeight: 'bold', fontSize: '13.5px', color: '#1a5235', marginBottom: '6px' }}>
-                                      {getLevel4Number(manualLevel4Idx++, formattingConfig)} الإيجابيات وعوامل القوة العامة:
-                                    </div>
-                                    {(sec.positivesList || []).map((text: string, idx: number) => (
-                                      <div key={idx} style={{ marginRight: getIndentation(5, formattingConfig), fontSize: '13.5px', marginBottom: '4px', color: '#1a5235', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        {editMode ? (
-                                          <>
-                                            <input
-                                              type="text"
-                                              value={text}
-                                              onChange={(e) => updateFindingListItem(sIdx, -1, 'positives', idx, e.target.value)}
-                                              style={{ flex: 1, border: '1px dashed #cbd5e0', padding: '2px 4px', fontSize: '13px', fontFamily: 'inherit', color: '#1a5235' }}
-                                            />
-                                            <button
-                                              type="button"
-                                              onClick={() => moveFindingListItemUp(sIdx, -1, 'positives', idx)}
-                                              disabled={idx === 0}
-                                              className="no-print"
-                                              style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                              title="نقل للأعلى"
-                                            >
-                                              ↑
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => moveFindingListItemDown(sIdx, -1, 'positives', idx)}
-                                              disabled={idx === (sec.positivesList || []).length - 1}
-                                              className="no-print"
-                                              style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                              title="نقل للأسفل"
-                                            >
-                                              ↓
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => removeFindingListItem(sIdx, -1, 'positives', idx)}
-                                              className="no-print"
-                                              style={{ backgroundColor: '#fed7d7', color: '#c53030', border: 'none', padding: '2px 6px', cursor: 'pointer', borderRadius: '4px', fontSize: '11px' }}
-                                            >
-                                              حذف
-                                            </button>
-                                          </>
-                                        ) : (
-                                          <>
-                                            {getLevel5ArabicLetter(idx + 1, formattingConfig)} {text}
-                                          </>
-                                        )}
-                                      </div>
-                                    ))}
-                                    {editMode && (
-                                      <button
-                                        type="button"
-                                        onClick={() => addFindingListItem(sIdx, -1, 'positives')}
-                                        className="btn-outline no-print"
-                                        style={{ marginRight: getIndentation(5, formattingConfig), padding: '3px 6px', fontSize: '11px', marginTop: '4px' }}
-                                      >
-                                        ➕ إضافة بند إيجابي
-                                      </button>
-                                    )}
-                                  </div>
+                                  <FindingList
+                                    number={getLevel4Number(manualLevel4Idx++, formattingConfig)}
+                                    titleText="الإيجابيات وعوامل القوة العامة:"
+                                    color="#1a5235"
+                                    items={sec.positivesList || []}
+                                    editMode={editMode}
+                                    formattingConfig={formattingConfig}
+                                    addLabel="➕ إضافة بند إيجابي"
+                                    onChangeItem={(idx, value) => updateFindingListItem(sIdx, -1, 'positives', idx, value)}
+                                    onMoveUp={(idx) => moveFindingListItemUp(sIdx, -1, 'positives', idx)}
+                                    onMoveDown={(idx) => moveFindingListItemDown(sIdx, -1, 'positives', idx)}
+                                    onRemove={(idx) => removeFindingListItem(sIdx, -1, 'positives', idx)}
+                                    onAdd={() => addFindingListItem(sIdx, -1, 'positives')}
+                                  />
                                 )}
 
                                 {(sec.showNegatives || editMode) && (
-                                  <div style={{ marginTop: '8px', marginRight: getIndentation(4, formattingConfig) }}>
-                                    <div style={{ fontWeight: 'bold', fontSize: '13.5px', color: '#742a2a', marginBottom: '6px' }}>
-                                      {getLevel4Number(manualLevel4Idx++, formattingConfig)} السلبيات ونقاط التقصير العامة:
-                                    </div>
-                                    {(sec.negativesList || []).map((text: string, idx: number) => (
-                                      <div key={idx} style={{ marginRight: getIndentation(5, formattingConfig), fontSize: '13.5px', marginBottom: '4px', color: '#742a2a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        {editMode ? (
-                                          <>
-                                            <input
-                                              type="text"
-                                              value={text}
-                                              onChange={(e) => updateFindingListItem(sIdx, -1, 'negatives', idx, e.target.value)}
-                                              style={{ flex: 1, border: '1px dashed #cbd5e0', padding: '2px 4px', fontSize: '13px', fontFamily: 'inherit', color: '#742a2a' }}
-                                            />
-                                            <button
-                                              type="button"
-                                              onClick={() => moveFindingListItemUp(sIdx, -1, 'negatives', idx)}
-                                              disabled={idx === 0}
-                                              className="no-print"
-                                              style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                              title="نقل للأعلى"
-                                            >
-                                              ↑
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => moveFindingListItemDown(sIdx, -1, 'negatives', idx)}
-                                              disabled={idx === (sec.negativesList || []).length - 1}
-                                              className="no-print"
-                                              style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                              title="نقل للأسفل"
-                                            >
-                                              ↓
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => removeFindingListItem(sIdx, -1, 'negatives', idx)}
-                                              className="no-print"
-                                              style={{ backgroundColor: '#fed7d7', color: '#c53030', border: 'none', padding: '2px 6px', cursor: 'pointer', borderRadius: '4px', fontSize: '11px' }}
-                                            >
-                                              حذف
-                                            </button>
-                                          </>
-                                        ) : (
-                                          <>
-                                            {getLevel5ArabicLetter(idx + 1, formattingConfig)} {text}
-                                          </>
-                                        )}
-                                      </div>
-                                    ))}
-                                    {editMode && (
-                                      <button
-                                        type="button"
-                                        onClick={() => addFindingListItem(sIdx, -1, 'negatives')}
-                                        className="btn-outline no-print"
-                                        style={{ marginRight: getIndentation(5, formattingConfig), padding: '3px 6px', fontSize: '11px', marginTop: '4px' }}
-                                      >
-                                        ➕ إضافة بند سلبي
-                                      </button>
-                                    )}
-                                  </div>
+                                  <FindingList
+                                    number={getLevel4Number(manualLevel4Idx++, formattingConfig)}
+                                    titleText="السلبيات ونقاط التقصير العامة:"
+                                    color="#742a2a"
+                                    items={sec.negativesList || []}
+                                    editMode={editMode}
+                                    formattingConfig={formattingConfig}
+                                    addLabel="➕ إضافة بند سلبي"
+                                    onChangeItem={(idx, value) => updateFindingListItem(sIdx, -1, 'negatives', idx, value)}
+                                    onMoveUp={(idx) => moveFindingListItemUp(sIdx, -1, 'negatives', idx)}
+                                    onMoveDown={(idx) => moveFindingListItemDown(sIdx, -1, 'negatives', idx)}
+                                    onRemove={(idx) => removeFindingListItem(sIdx, -1, 'negatives', idx)}
+                                    onAdd={() => addFindingListItem(sIdx, -1, 'negatives')}
+                                  />
                                 )}
 
                                 {(sec.showImpediments || editMode) && (
-                                  <div style={{ marginTop: '8px', marginRight: getIndentation(4, formattingConfig) }}>
-                                    <div style={{ fontWeight: 'bold', fontSize: '13.5px', color: '#7b341e', marginBottom: '6px' }}>
-                                      {getLevel4Number(manualLevel4Idx++, formattingConfig)} المعوقات العامة:
-                                    </div>
-                                    {(sec.impedimentsList || []).map((text: string, idx: number) => (
-                                      <div key={idx} style={{ marginRight: getIndentation(5, formattingConfig), fontSize: '13.5px', marginBottom: '4px', color: '#7b341e', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        {editMode ? (
-                                          <>
-                                            <input
-                                              type="text"
-                                              value={text}
-                                              onChange={(e) => updateFindingListItem(sIdx, -1, 'impediments', idx, e.target.value)}
-                                              style={{ flex: 1, border: '1px dashed #cbd5e0', padding: '2px 4px', fontSize: '13px', fontFamily: 'inherit', color: '#7b341e' }}
-                                            />
-                                            <button
-                                              type="button"
-                                              onClick={() => moveFindingListItemUp(sIdx, -1, 'impediments', idx)}
-                                              disabled={idx === 0}
-                                              className="no-print"
-                                              style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                              title="نقل للأعلى"
-                                            >
-                                              ↑
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => moveFindingListItemDown(sIdx, -1, 'impediments', idx)}
-                                              disabled={idx === (sec.impedimentsList || []).length - 1}
-                                              className="no-print"
-                                              style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                              title="نقل للأسفل"
-                                            >
-                                              ↓
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => removeFindingListItem(sIdx, -1, 'impediments', idx)}
-                                              className="no-print"
-                                              style={{ backgroundColor: '#fed7d7', color: '#c53030', border: 'none', padding: '2px 6px', cursor: 'pointer', borderRadius: '4px', fontSize: '11px' }}
-                                            >
-                                              حذف
-                                            </button>
-                                          </>
-                                        ) : (
-                                          <>
-                                            {getLevel5ArabicLetter(idx + 1, formattingConfig)} {text}
-                                          </>
-                                        )}
-                                      </div>
-                                    ))}
-                                    {editMode && (
-                                      <button
-                                        type="button"
-                                        onClick={() => addFindingListItem(sIdx, -1, 'impediments')}
-                                        className="btn-outline no-print"
-                                        style={{ marginRight: getIndentation(5, formattingConfig), padding: '3px 6px', fontSize: '11px', marginTop: '4px' }}
-                                      >
-                                        ➕ إضافة بند معوقات
-                                      </button>
-                                    )}
-                                  </div>
+                                  <FindingList
+                                    number={getLevel4Number(manualLevel4Idx++, formattingConfig)}
+                                    titleText="المعوقات العامة:"
+                                    color="#7b341e"
+                                    items={sec.impedimentsList || []}
+                                    editMode={editMode}
+                                    formattingConfig={formattingConfig}
+                                    addLabel="➕ إضافة بند معوقات"
+                                    onChangeItem={(idx, value) => updateFindingListItem(sIdx, -1, 'impediments', idx, value)}
+                                    onMoveUp={(idx) => moveFindingListItemUp(sIdx, -1, 'impediments', idx)}
+                                    onMoveDown={(idx) => moveFindingListItemDown(sIdx, -1, 'impediments', idx)}
+                                    onRemove={(idx) => removeFindingListItem(sIdx, -1, 'impediments', idx)}
+                                    onAdd={() => addFindingListItem(sIdx, -1, 'impediments')}
+                                  />
                                 )}
 
                                 {(sec.showObstacles || editMode) && (
-                                  <div style={{ marginTop: '8px', marginRight: getIndentation(4, formattingConfig) }}>
-                                    <div style={{ fontWeight: 'bold', fontSize: '13.5px', color: '#5a3e2b', marginBottom: '6px' }}>
-                                      {getLevel4Number(manualLevel4Idx++, formattingConfig)} المعاضل العامة:
-                                    </div>
-                                    {(sec.obstaclesList || []).map((text: string, idx: number) => (
-                                      <div key={idx} style={{ marginRight: getIndentation(5, formattingConfig), fontSize: '13.5px', marginBottom: '4px', color: '#5a3e2b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        {editMode ? (
-                                          <>
-                                            <input
-                                              type="text"
-                                              value={text}
-                                              onChange={(e) => updateFindingListItem(sIdx, -1, 'obstacles', idx, e.target.value)}
-                                              style={{ flex: 1, border: '1px dashed #cbd5e0', padding: '2px 4px', fontSize: '13px', fontFamily: 'inherit', color: '#5a3e2b' }}
-                                            />
-                                            <button
-                                              type="button"
-                                              onClick={() => moveFindingListItemUp(sIdx, -1, 'obstacles', idx)}
-                                              disabled={idx === 0}
-                                              className="no-print"
-                                              style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                              title="نقل للأعلى"
-                                            >
-                                              ↑
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => moveFindingListItemDown(sIdx, -1, 'obstacles', idx)}
-                                              disabled={idx === (sec.obstaclesList || []).length - 1}
-                                              className="no-print"
-                                              style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                              title="نقل للأسفل"
-                                            >
-                                              ↓
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => removeFindingListItem(sIdx, -1, 'obstacles', idx)}
-                                              className="no-print"
-                                              style={{ backgroundColor: '#fed7d7', color: '#c53030', border: 'none', padding: '2px 6px', cursor: 'pointer', borderRadius: '4px', fontSize: '11px' }}
-                                            >
-                                              حذف
-                                            </button>
-                                          </>
-                                        ) : (
-                                          <>
-                                            {getLevel5ArabicLetter(idx + 1, formattingConfig)} {text}
-                                          </>
-                                        )}
-                                      </div>
-                                    ))}
-                                    {editMode && (
-                                      <button
-                                        type="button"
-                                        onClick={() => addFindingListItem(sIdx, -1, 'obstacles')}
-                                        className="btn-outline no-print"
-                                        style={{ marginRight: getIndentation(5, formattingConfig), padding: '3px 6px', fontSize: '11px', marginTop: '4px' }}
-                                      >
-                                        ➕ إضافة بند معضلة
-                                      </button>
-                                    )}
-                                  </div>
+                                  <FindingList
+                                    number={getLevel4Number(manualLevel4Idx++, formattingConfig)}
+                                    titleText="المعاضل العامة:"
+                                    color="#5a3e2b"
+                                    items={sec.obstaclesList || []}
+                                    editMode={editMode}
+                                    formattingConfig={formattingConfig}
+                                    addLabel="➕ إضافة بند معضلة"
+                                    onChangeItem={(idx, value) => updateFindingListItem(sIdx, -1, 'obstacles', idx, value)}
+                                    onMoveUp={(idx) => moveFindingListItemUp(sIdx, -1, 'obstacles', idx)}
+                                    onMoveDown={(idx) => moveFindingListItemDown(sIdx, -1, 'obstacles', idx)}
+                                    onRemove={(idx) => removeFindingListItem(sIdx, -1, 'obstacles', idx)}
+                                    onAdd={() => addFindingListItem(sIdx, -1, 'obstacles')}
+                                  />
                                 )}
                               </div>
                             ) : (
@@ -2215,9 +1660,10 @@ export const Reports: React.FC = () => {
                                         </div>
                                       ) : (
                                         sub.visible && (
-                                          <div style={{ fontWeight: 'bold', fontSize: '14px', color: '#1a202c', marginBottom: '10px', paddingRight: '8px' }}>
-                                            {sub.numbering || getLevel3Ordinal(subIdx + 1, formattingConfig)} {sub.title}
-                                          </div>
+                                          <SubsectionTitle
+                                            number={sub.numbering || getLevel3Ordinal(subIdx + 1, formattingConfig)}
+                                            title={sub.title}
+                                          />
                                         )
                                       )}
 
@@ -2319,7 +1765,7 @@ export const Reports: React.FC = () => {
                                             ));
                                           })()}
                                           {sub.narrativeText && (
-                                            <div style={{ marginTop: '6px', whiteSpace: 'pre-line', color: '#4a5568' }}>{sub.narrativeText}</div>
+                                            <NarrativeText text={sub.narrativeText} variant="subsection" />
                                           )}
                                         </div>
                                       )}
@@ -2379,350 +1825,88 @@ export const Reports: React.FC = () => {
                                         )}
 
                                         {(sub.showPositives || editMode) && (
-                                          <div style={{ marginTop: '8px', marginRight: getIndentation(4, formattingConfig) }}>
-                                            <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#1a5235', marginBottom: '6px' }}>
-                                              {getLevel4Number(subLevel4Idx++, formattingConfig)} الإيجابيات وعوامل القوة المرصودة:
-                                            </div>
-                                            {(sub.positivesList || []).map((text: string, idx: number) => (
-                                              <div key={idx} style={{ marginRight: getIndentation(5, formattingConfig), fontSize: '13px', marginBottom: '4px', color: '#1a5235', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                {editMode ? (
-                                                  <>
-                                                    <input
-                                                      type="text"
-                                                      value={text}
-                                                      onChange={(e) => updateFindingListItem(sIdx, subIdx, 'positives', idx, e.target.value)}
-                                                      style={{ flex: 1, border: '1px dashed #cbd5e0', padding: '2px 4px', fontSize: '12.5px', fontFamily: 'inherit', color: '#1a5235' }}
-                                                    />
-                                                    <button
-                                                      type="button"
-                                                      onClick={() => moveFindingListItemUp(sIdx, subIdx, 'positives', idx)}
-                                                      disabled={idx === 0}
-                                                      className="no-print"
-                                                      style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                                      title="نقل للأعلى"
-                                                    >
-                                                      ↑
-                                                    </button>
-                                                    <button
-                                                      type="button"
-                                                      onClick={() => moveFindingListItemDown(sIdx, subIdx, 'positives', idx)}
-                                                      disabled={idx === (sub.positivesList || []).length - 1}
-                                                      className="no-print"
-                                                      style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                                      title="نقل للأسفل"
-                                                    >
-                                                      ↓
-                                                    </button>
-                                                    <button
-                                                      type="button"
-                                                      onClick={() => removeFindingListItem(sIdx, subIdx, 'positives', idx)}
-                                                      className="no-print"
-                                                      style={{ backgroundColor: '#fed7d7', color: '#c53030', border: 'none', padding: '2px 6px', cursor: 'pointer', borderRadius: '4px', fontSize: '11px' }}
-                                                    >
-                                                      حذف
-                                                    </button>
-                                                  </>
-                                                ) : (
-                                                  <>
-                                                    {getLevel5ArabicLetter(idx + 1, formattingConfig)} {text}
-                                                  </>
-                                                )}
-                                              </div>
-                                            ))}
-                                            {editMode && (
-                                              <button
-                                                type="button"
-                                                onClick={() => addFindingListItem(sIdx, subIdx, 'positives')}
-                                                className="btn-outline no-print"
-                                                style={{ marginRight: getIndentation(5, formattingConfig), padding: '3px 6px', fontSize: '11px', marginTop: '4px' }}
-                                              >
-                                                ➕ إضافة بند إيجابي
-                                              </button>
-                                            )}
-                                          </div>
+                                          <FindingList
+                                            number={getLevel4Number(subLevel4Idx++, formattingConfig)}
+                                            titleText="الإيجابيات وعوامل القوة المرصودة:"
+                                            color="#1a5235"
+                                            items={sub.positivesList || []}
+                                            editMode={editMode}
+                                            formattingConfig={formattingConfig}
+                                            addLabel="➕ إضافة بند إيجابي"
+                                            fontSize="13px"
+                                            inputFontSize="12.5px"
+                                            onChangeItem={(idx, value) => updateFindingListItem(sIdx, subIdx, 'positives', idx, value)}
+                                            onMoveUp={(idx) => moveFindingListItemUp(sIdx, subIdx, 'positives', idx)}
+                                            onMoveDown={(idx) => moveFindingListItemDown(sIdx, subIdx, 'positives', idx)}
+                                            onRemove={(idx) => removeFindingListItem(sIdx, subIdx, 'positives', idx)}
+                                            onAdd={() => addFindingListItem(sIdx, subIdx, 'positives')}
+                                          />
                                         )}
 
                                         {(sub.showNegatives || editMode) && (
-                                          <div style={{ marginTop: '8px', marginRight: getIndentation(4, formattingConfig) }}>
-                                            <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#742a2a', marginBottom: '6px' }}>
-                                              {getLevel4Number(subLevel4Idx++, formattingConfig)} السلبيات ونقاط التقصير الإداري والتنظيمي:
-                                            </div>
-                                            {(sub.negativesList || []).map((text: string, idx: number) => (
-                                              <div key={idx} style={{ marginRight: getIndentation(5, formattingConfig), fontSize: '13px', marginBottom: '4px', color: '#742a2a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                {editMode ? (
-                                                  <>
-                                                    <input
-                                                      type="text"
-                                                      value={text}
-                                                      onChange={(e) => updateFindingListItem(sIdx, subIdx, 'negatives', idx, e.target.value)}
-                                                      style={{ flex: 1, border: '1px dashed #cbd5e0', padding: '2px 4px', fontSize: '12.5px', fontFamily: 'inherit', color: '#742a2a' }}
-                                                    />
-                                                    <button
-                                                      type="button"
-                                                      onClick={() => moveFindingListItemUp(sIdx, subIdx, 'negatives', idx)}
-                                                      disabled={idx === 0}
-                                                      className="no-print"
-                                                      style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                                      title="نقل للأعلى"
-                                                    >
-                                                      ↑
-                                                    </button>
-                                                    <button
-                                                      type="button"
-                                                      onClick={() => moveFindingListItemDown(sIdx, subIdx, 'negatives', idx)}
-                                                      disabled={idx === (sub.negativesList || []).length - 1}
-                                                      className="no-print"
-                                                      style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                                      title="نقل للأسفل"
-                                                    >
-                                                      ↓
-                                                    </button>
-                                                    <button
-                                                      type="button"
-                                                      onClick={() => removeFindingListItem(sIdx, subIdx, 'negatives', idx)}
-                                                      className="no-print"
-                                                      style={{ backgroundColor: '#fed7d7', color: '#c53030', border: 'none', padding: '2px 6px', cursor: 'pointer', borderRadius: '4px', fontSize: '11px' }}
-                                                    >
-                                                      حذف
-                                                    </button>
-                                                  </>
-                                                ) : (
-                                                  <>
-                                                    {getLevel5ArabicLetter(idx + 1, formattingConfig)} {text}
-                                                  </>
-                                                )}
-                                              </div>
-                                            ))}
-                                            {editMode && (
-                                              <button
-                                                type="button"
-                                                onClick={() => addFindingListItem(sIdx, subIdx, 'negatives')}
-                                                className="btn-outline no-print"
-                                                style={{ marginRight: getIndentation(5, formattingConfig), padding: '3px 6px', fontSize: '11px', marginTop: '4px' }}
-                                              >
-                                                ➕ إضافة بند سلبي
-                                              </button>
-                                            )}
-                                          </div>
+                                          <FindingList
+                                            number={getLevel4Number(subLevel4Idx++, formattingConfig)}
+                                            titleText="السلبيات ونقاط التقصير الإداري والتنظيمي:"
+                                            color="#742a2a"
+                                            items={sub.negativesList || []}
+                                            editMode={editMode}
+                                            formattingConfig={formattingConfig}
+                                            addLabel="➕ إضافة بند سلبي"
+                                            fontSize="13px"
+                                            inputFontSize="12.5px"
+                                            onChangeItem={(idx, value) => updateFindingListItem(sIdx, subIdx, 'negatives', idx, value)}
+                                            onMoveUp={(idx) => moveFindingListItemUp(sIdx, subIdx, 'negatives', idx)}
+                                            onMoveDown={(idx) => moveFindingListItemDown(sIdx, subIdx, 'negatives', idx)}
+                                            onRemove={(idx) => removeFindingListItem(sIdx, subIdx, 'negatives', idx)}
+                                            onAdd={() => addFindingListItem(sIdx, subIdx, 'negatives')}
+                                          />
                                         )}
 
                                         {(sub.showImpediments || editMode) && (
-                                          <div style={{ marginTop: '8px', marginRight: getIndentation(4, formattingConfig) }}>
-                                            <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#7b341e', marginBottom: '6px' }}>
-                                              {getLevel4Number(subLevel4Idx++, formattingConfig)} المعوقات ونقص الدعم اللوجستي والبشري:
-                                            </div>
-                                            {(sub.impedimentsList || []).map((text: string, idx: number) => (
-                                              <div key={idx} style={{ marginRight: getIndentation(5, formattingConfig), fontSize: '13px', marginBottom: '4px', color: '#7b341e', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                {editMode ? (
-                                                  <>
-                                                    <input
-                                                      type="text"
-                                                      value={text}
-                                                      onChange={(e) => updateFindingListItem(sIdx, subIdx, 'impediments', idx, e.target.value)}
-                                                      style={{ flex: 1, border: '1px dashed #cbd5e0', padding: '2px 4px', fontSize: '12.5px', fontFamily: 'inherit', color: '#7b341e' }}
-                                                    />
-                                                    <button
-                                                      type="button"
-                                                      onClick={() => moveFindingListItemUp(sIdx, subIdx, 'impediments', idx)}
-                                                      disabled={idx === 0}
-                                                      className="no-print"
-                                                      style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                                      title="نقل للأعلى"
-                                                    >
-                                                      ↑
-                                                    </button>
-                                                    <button
-                                                      type="button"
-                                                      onClick={() => moveFindingListItemDown(sIdx, subIdx, 'impediments', idx)}
-                                                      disabled={idx === (sub.impedimentsList || []).length - 1}
-                                                      className="no-print"
-                                                      style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                                      title="نقل للأسفل"
-                                                    >
-                                                      ↓
-                                                    </button>
-                                                    <button
-                                                      type="button"
-                                                      onClick={() => removeFindingListItem(sIdx, subIdx, 'impediments', idx)}
-                                                      className="no-print"
-                                                      style={{ backgroundColor: '#fed7d7', color: '#c53030', border: 'none', padding: '2px 6px', cursor: 'pointer', borderRadius: '4px', fontSize: '11px' }}
-                                                    >
-                                                      حذف
-                                                    </button>
-                                                  </>
-                                                ) : (
-                                                  <>
-                                                    {getLevel5ArabicLetter(idx + 1, formattingConfig)} {text}
-                                                  </>
-                                                )}
-                                              </div>
-                                            ))}
-                                            {editMode && (
-                                              <button
-                                                type="button"
-                                                onClick={() => addFindingListItem(sIdx, subIdx, 'impediments')}
-                                                className="btn-outline no-print"
-                                                style={{ marginRight: getIndentation(5, formattingConfig), padding: '3px 6px', fontSize: '11px', marginTop: '4px' }}
-                                              >
-                                                ➕ إضافة بند معوقات
-                                              </button>
-                                            )}
-                                          </div>
+                                          <FindingList
+                                            number={getLevel4Number(subLevel4Idx++, formattingConfig)}
+                                            titleText="المعوقات ونقص الدعم اللوجستي والبشري:"
+                                            color="#7b341e"
+                                            items={sub.impedimentsList || []}
+                                            editMode={editMode}
+                                            formattingConfig={formattingConfig}
+                                            addLabel="➕ إضافة بند معوقات"
+                                            fontSize="13px"
+                                            inputFontSize="12.5px"
+                                            onChangeItem={(idx, value) => updateFindingListItem(sIdx, subIdx, 'impediments', idx, value)}
+                                            onMoveUp={(idx) => moveFindingListItemUp(sIdx, subIdx, 'impediments', idx)}
+                                            onMoveDown={(idx) => moveFindingListItemDown(sIdx, subIdx, 'impediments', idx)}
+                                            onRemove={(idx) => removeFindingListItem(sIdx, subIdx, 'impediments', idx)}
+                                            onAdd={() => addFindingListItem(sIdx, subIdx, 'impediments')}
+                                          />
                                         )}
 
                                         {(sub.showObstacles || editMode) && (
-                                          <div style={{ marginTop: '8px', marginRight: getIndentation(4, formattingConfig) }}>
-                                            <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#5a3e2b', marginBottom: '6px' }}>
-                                              المعاضل والمشاكل الهيكلية الحرجة (تتطلب تدخل المراجع):
-                                            </div>
-                                            {(sub.obstaclesList || []).map((text: string, idx: number) => (
-                                              <div key={idx} style={{ marginRight: getIndentation(5, formattingConfig), fontSize: '13px', marginBottom: '4px', color: '#5a3e2b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                {editMode ? (
-                                                  <>
-                                                    <input
-                                                      type="text"
-                                                      value={text}
-                                                      onChange={(e) => updateFindingListItem(sIdx, subIdx, 'obstacles', idx, e.target.value)}
-                                                      style={{ flex: 1, border: '1px dashed #cbd5e0', padding: '2px 4px', fontSize: '12.5px', fontFamily: 'inherit', color: '#5a3e2b' }}
-                                                    />
-                                                    <button
-                                                      type="button"
-                                                      onClick={() => moveFindingListItemUp(sIdx, subIdx, 'obstacles', idx)}
-                                                      disabled={idx === 0}
-                                                      className="no-print"
-                                                      style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                                      title="نقل للأعلى"
-                                                    >
-                                                      ↑
-                                                    </button>
-                                                    <button
-                                                      type="button"
-                                                      onClick={() => moveFindingListItemDown(sIdx, subIdx, 'obstacles', idx)}
-                                                      disabled={idx === (sub.obstaclesList || []).length - 1}
-                                                      className="no-print"
-                                                      style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                                      title="نقل للأسفل"
-                                                    >
-                                                      ↓
-                                                    </button>
-                                                    <button
-                                                      type="button"
-                                                      onClick={() => removeFindingListItem(sIdx, subIdx, 'obstacles', idx)}
-                                                      className="no-print"
-                                                      style={{ backgroundColor: '#fed7d7', color: '#c53030', border: 'none', padding: '2px 6px', cursor: 'pointer', borderRadius: '4px', fontSize: '11px' }}
-                                                    >
-                                                      حذف
-                                                    </button>
-                                                  </>
-                                                ) : (
-                                                  <>
-                                                    {getLevel5ArabicLetter(idx + 1, formattingConfig)} {text}
-                                                  </>
-                                                )}
-                                              </div>
-                                            ))}
-                                            {editMode && (
-                                              <button
-                                                type="button"
-                                                onClick={() => addFindingListItem(sIdx, subIdx, 'obstacles')}
-                                                className="btn-outline no-print"
-                                                style={{ marginRight: getIndentation(5, formattingConfig), padding: '3px 6px', fontSize: '11px', marginTop: '4px' }}
-                                              >
-                                                ➕ إضافة بند معضلة
-                                              </button>
-                                            )}
-                                          </div>
+                                          <FindingList
+                                            titleText="المعاضل والمشاكل الهيكلية الحرجة (تتطلب تدخل المراجع):"
+                                            color="#5a3e2b"
+                                            items={sub.obstaclesList || []}
+                                            editMode={editMode}
+                                            formattingConfig={formattingConfig}
+                                            addLabel="➕ إضافة بند معضلة"
+                                            fontSize="13px"
+                                            inputFontSize="12.5px"
+                                            onChangeItem={(idx, value) => updateFindingListItem(sIdx, subIdx, 'obstacles', idx, value)}
+                                            onMoveUp={(idx) => moveFindingListItemUp(sIdx, subIdx, 'obstacles', idx)}
+                                            onMoveDown={(idx) => moveFindingListItemDown(sIdx, subIdx, 'obstacles', idx)}
+                                            onRemove={(idx) => removeFindingListItem(sIdx, subIdx, 'obstacles', idx)}
+                                            onAdd={() => addFindingListItem(sIdx, subIdx, 'obstacles')}
+                                          />
                                         )}
                                         {/* Detailed Tables Rendering */}
-                                        {sub.detailedTables && sub.detailedTables.length > 0 && (
-                                          <div style={{ marginTop: '15px', marginRight: getIndentation(4, formattingConfig) }}>
-                                            {sub.detailedTables.map((table: any, tIdx: number) => (
-                                              <div key={table.detailId || tIdx} style={{ marginBottom: '20px', pageBreakInside: 'avoid' }}>
-                                                <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#0c2340', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                  <span>📊 {table.title}</span>
-                                                  <span style={{ fontSize: '11px', fontWeight: 'normal', color: '#718096', marginRight: 'auto' }}>({table.entityName})</span>
-                                                  {editMode && (
-                                                    <button
-                                                      type="button"
-                                                      onClick={() => addDetailedTableRow(sIdx, subIdx, tIdx)}
-                                                      className="no-print"
-                                                      style={{ backgroundColor: '#edf2f7', color: '#2b6cb0', border: '1px solid #cbd5e0', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}
-                                                    >
-                                                      ➕ إضافة صف
-                                                    </button>
-                                                  )}
-                                                </div>
-                                                <div style={{ overflowX: 'auto', width: '100%' }}>
-                                                  <table className="military-table" style={{ margin: '5px 0 10px 0', width: '100%', borderCollapse: 'collapse', border: '1px solid #000' }}>
-                                                    <thead>
-                                                      <tr style={{ backgroundColor: '#f2f2f2' }}>
-                                                        {table.schema.map((col: any, colIdx: number) => (
-                                                          <th key={col.key || colIdx} style={{ padding: '6px 8px', border: '1px solid #000', fontWeight: 'bold', textAlign: 'center', fontSize: '12px' }}>
-                                                            {col.label}
-                                                          </th>
-                                                        ))}
-                                                        {editMode && <th className="no-print" style={{ padding: '6px 8px', border: '1px solid #000', fontWeight: 'bold', textAlign: 'center', fontSize: '12px', width: '60px' }}>إجراء</th>}
-                                                      </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                      {table.rows.map((row: any, rIdx: number) => (
-                                                        <tr key={rIdx}>
-                                                          {table.schema.map((col: any, cIdx: number) => {
-                                                            const cellVal = row[col.key] !== undefined ? row[col.key] : '';
-                                                            const isPercentage = col.role === 'percentage';
-                                                            const formattedVal = isPercentage ? `${cellVal}%` : cellVal;
-                                                            
-                                                            let textColor = '#000000';
-                                                            if (col.role === 'deficit' && Number(cellVal) > 0) textColor = '#c53030';
-                                                            if (col.role === 'increase' && Number(cellVal) > 0) textColor = '#2b6cb0';
-
-                                                            const isBold = col.role === 'label' || col.role === 'percentage' || col.role === 'deficit' || col.role === 'increase';
-                                                            const fontWeight = isBold ? 'bold' : 'normal';
-
-                                                            return (
-                                                              <td key={col.key || cIdx} style={{ padding: '6px', border: '1px solid #000', textAlign: 'center', fontSize: '12px', color: textColor, fontWeight: fontWeight }}>
-                                                                {editMode ? (
-                                                                  col.role === 'deficit' || col.role === 'increase' || col.role === 'percentage' ? (
-                                                                    <span>{formattedVal}</span>
-                                                                  ) : (
-                                                                    <input
-                                                                      type={col.type === 'number' ? 'number' : 'text'}
-                                                                      value={cellVal}
-                                                                      onChange={(e) => handleDetailedTableCellChange(sIdx, subIdx, tIdx, rIdx, col.key, e.target.value)}
-                                                                      style={{ width: '100%', border: 'none', padding: '2px', textAlign: col.type === 'number' ? 'center' : 'right', fontFamily: 'inherit', fontWeight: fontWeight, color: textColor }}
-                                                                    />
-                                                                  )
-                                                                ) : (
-                                                                  formattedVal
-                                                                )}
-                                                              </td>
-                                                            );
-                                                          })}
-                                                          {editMode && (
-                                                            <td className="no-print" style={{ padding: '4px', border: '1px solid #000', textAlign: 'center' }}>
-                                                              <button
-                                                                type="button"
-                                                                onClick={() => removeDetailedTableRow(sIdx, subIdx, tIdx, rIdx)}
-                                                                style={{ backgroundColor: '#fed7d7', color: '#c53030', border: 'none', borderRadius: '4px', padding: '2px 6px', cursor: 'pointer', fontSize: '11px' }}
-                                                              >
-                                                                حذف
-                                                              </button>
-                                                            </td>
-                                                          )}
-                                                        </tr>
-                                                      ))}
-                                                      {table.rows.length === 0 && (
-                                                        <tr>
-                                                          <td colSpan={table.schema.length + (editMode ? 1: 0)} style={{ padding: '10px', color: '#a0aec0', textAlign: 'center' }}>لا توجد سجلات.</td>
-                                                        </tr>
-                                                      )}
-                                                    </tbody>
-                                                  </table>
-                                                </div>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        )}
+                                        <DetailedTablesView
+                                          tables={sub.detailedTables}
+                                          editMode={editMode}
+                                          formattingConfig={formattingConfig}
+                                          onAddRow={(tIdx) => addDetailedTableRow(sIdx, subIdx, tIdx)}
+                                          onCellChange={(tIdx, rIdx, colKey, value) => handleDetailedTableCellChange(sIdx, subIdx, tIdx, rIdx, colKey, value)}
+                                          onRemoveRow={(tIdx, rIdx) => removeDetailedTableRow(sIdx, subIdx, tIdx, rIdx)}
+                                        />
                                       </div>
                                     );
                                   })}
@@ -2749,69 +1933,31 @@ export const Reports: React.FC = () => {
                 </div>
 
                 {/* 8. التوصيات والمقترحات */}
-                <div style={{ marginBottom: '25px' }}>
-                  <h3 className="section-num">{getLevel1Number(8, formattingConfig)} الملاحظات</h3>
-                  <div className="section-body">
-                    <div style={{ fontWeight: 'bold', fontSize: '14px', marginRight: getIndentation(2, formattingConfig), marginTop: '12px' }}>{getLevel2ArabicLetter(1, formattingConfig)} الإيجابيات</div>
-                    {renderOfficialObservationItems(officialObservationSection?.positivesList || [], 'positives')}
-                    <div style={{ fontWeight: 'bold', fontSize: '14px', marginRight: getIndentation(2, formattingConfig), marginTop: '12px' }}>{getLevel2ArabicLetter(2, formattingConfig)} السلبيات</div>
-                    {renderOfficialObservationItems(officialObservationSection?.negativesList || [], 'negatives')}
-                    <div style={{ fontWeight: 'bold', fontSize: '14px', marginRight: getIndentation(2, formattingConfig), marginTop: '12px' }}>{getLevel2ArabicLetter(3, formattingConfig)} المعوقات</div>
-                    {renderOfficialObservationItems(officialObservationSection?.impedimentsList || [], 'impediments')}
-                    <div style={{ fontWeight: 'bold', fontSize: '14px', marginRight: getIndentation(2, formattingConfig), marginTop: '12px' }}>{getLevel2ArabicLetter(4, formattingConfig)} المعاضل</div>
-                    {renderOfficialObservationItems(officialObservationSection?.obstaclesList || [], 'obstacles')}
-                  </div>
-                </div>
+                <OfficialNotesSection
+                  editMode={editMode}
+                  number={getLevel1Number(7, formattingConfig)}
+                  section={officialObservationSection}
+                  canEditItems={officialObservationSectionIndex >= 0}
+                  formattingConfig={formattingConfig}
+                  onChangeItem={(listType, idx, value) => updateFindingListItem(officialObservationSectionIndex, -1, listType, idx, value)}
+                  onMoveUp={(listType, idx) => moveFindingListItemUp(officialObservationSectionIndex, -1, listType, idx)}
+                  onMoveDown={(listType, idx) => moveFindingListItemDown(officialObservationSectionIndex, -1, listType, idx)}
+                  onRemove={(listType, idx) => removeFindingListItem(officialObservationSectionIndex, -1, listType, idx)}
+                  onAdd={(listType) => addFindingListItem(officialObservationSectionIndex, -1, listType)}
+                />
 
-                <div style={{ marginBottom: '25px' }}>
-                  <h3 className="section-num">{getLevel1Number(9, formattingConfig)} التوصيات</h3>
-                  <div className="section-body">
-                    {reportPayload.recommendations && reportPayload.recommendations.length > 0 ? (
-                      reportPayload.recommendations.map((recGroup: any, grpIdx: number) => {
-                        if (!recGroup.visible && !editMode) return null;
-                        return (
-                          <div key={recGroup.id || grpIdx} style={{ marginBottom: '20px', marginRight: getIndentation(2, formattingConfig), opacity: recGroup.visible ? 1 : 0.5 }}>
-                            <div style={{ fontWeight: 'bold', color: '#0c2340', marginBottom: '8px' }}>
-                              {getLevel2ArabicLetter(grpIdx + 1, formattingConfig)} {recGroup.authority}
-                            </div>
-                            <div style={{ marginRight: getIndentation(3, formattingConfig) }}>
-                              {recGroup.recs && recGroup.recs.length > 0 ? (
-                                recGroup.recs.map((rec: any, recIdx: number) => (
-                                  <div key={rec.id || recIdx} style={{ marginBottom: '10px' }}>
-                                    <div style={{ marginBottom: '4px', fontSize: '13.5px', fontWeight: '500' }}>
-                                      {getLevel3Ordinal(recIdx + 1, formattingConfig).replace('.', ':')} {rec.text}
-                                    </div>
-                                    {rec.children && rec.children.length > 0 && (
-                                      <div style={{ marginRight: getIndentation(4, formattingConfig), display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        {rec.children.map((child: any, childIdx: number) => (
-                                          <div key={child.id || childIdx} style={{ fontSize: '13px', color: '#4a5568' }}>
-                                            • {child.text}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                ))
-                              ) : (
-                                <div style={{ fontSize: '13.5px', color: '#718096', fontStyle: 'italic', marginBottom: '10px' }}>
-                                  لا توجد توصيات مدخلة تحت هذه الجهة.
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div style={{ marginRight: getIndentation(2, formattingConfig), fontSize: '13.5px', color: '#718096' }}>لا توجد توصيات مدخلة.</div>
-                    )}
-                  </div>
-                </div>
+                <RecommendationsSection
+                  editMode={editMode}
+                  number={getLevel1Number(8, formattingConfig)}
+                  recommendations={reportPayload.recommendations}
+                  formattingConfig={formattingConfig}
+                />
 
-                {reportPayload.finalEvaluation?.statement && (
-                  <div style={{ marginTop: '25px', marginBottom: '25px' }}>
-                    <h3 className="section-num">{getLevel1Number(10, formattingConfig)} {reportPayload.finalEvaluation.statement}</h3>
-                  </div>
-                )}
+                <FinalEvaluationSection
+                  number={getLevel1Number(9, formattingConfig)}
+                  finalEvaluation={reportPayload.finalEvaluation}
+                  formattingConfig={formattingConfig}
+                />
 
                 {false && (reportPayload.recommendations?.some((r: any) => r.visible && r.recs.length > 0) || editMode) && (
                   <div style={{ marginBottom: '25px' }}>
@@ -2919,267 +2065,30 @@ export const Reports: React.FC = () => {
                   </div>
                 )}
 
-                {/* 9. ملاحق التقرير التفتيشي */}
-                {(reportPayload.appendices?.some((a: any) => a.visible) || editMode) && (
-                  <div style={{ marginBottom: '25px' }}>
-                    <div style={{ pageBreakBefore: 'always' }}></div>
-                    <h3 className="section-num">{getLevel1Number(11, formattingConfig)} ملاحق التقرير التفتيشي</h3>
-                    <div className="section-body">
-                      {reportPayload.appendices.map((app: any, idx: number) => {
-                        if (!app.visible && !editMode) return null;
-                        return (
-                          <div key={app.id} style={{ marginBottom: '20px', opacity: app.visible ? 1 : 0.5 }}>
-                            {editMode ? (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                                <button type="button" onClick={() => moveAppendixUp(idx)} disabled={idx === 0} style={{ padding: '2px 5px', fontSize: '12px', cursor: 'pointer' }}>⬆️</button>
-                                <button type="button" onClick={() => moveAppendixDown(idx)} disabled={idx === reportPayload.appendices.length - 1} style={{ padding: '2px 5px', fontSize: '12px', cursor: 'pointer' }}>⬇️</button>
-                                <input
-                                  type="checkbox"
-                                  checked={!!app.visible}
-                                  onChange={(e) => updateAppendixField(idx, 'visible', e.target.checked)}
-                                  title="إظهار/إخفاء الملحق"
-                                />
-                                <span>رمز الملحق:</span>
-                                <input
-                                  type="text"
-                                  value={app.symbol}
-                                  onChange={(e) => updateAppendixField(idx, 'symbol', e.target.value)}
-                                  style={{ width: '60px', border: '1px dashed #cbd5e0', padding: '3px', textAlign: 'center', fontFamily: 'inherit' }}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => removeAppendix(idx)}
-                                  className="no-print"
-                                  style={{ backgroundColor: '#fed7d7', color: '#c53030', border: 'none', padding: '3px 8px', cursor: 'pointer', borderRadius: '4px' }}
-                                >
-                                  حذف الملحق
-                                </button>
-                              </div>
-                            ) : (
-                              <div style={{ fontWeight: 'bold', color: '#0c2340', borderBottom: '1px dashed #cbd5e0', paddingBottom: '3px', marginBottom: '8px' }}>
-                                {getLevel2ArabicLetter(idx + 1, formattingConfig)} ملحق ({app.symbol})
-                              </div>
-                            )}
-                            <div>
-                              {editMode ? (
-                                <textarea
-                                  value={app.text}
-                                  onChange={(e) => updateAppendixField(idx, 'text', e.target.value)}
-                                  rows={4}
-                                  style={{ width: '100%', border: '1px dashed #cbd5e0', padding: '8px', fontFamily: 'inherit', fontSize: '13px' }}
-                                />
-                              ) : (
-                                <div style={{ whiteSpace: 'pre-line', fontSize: '13px' }}>{app.text}</div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                      {editMode && (
-                        <div className="no-print" style={{ marginTop: '10px' }}>
-                          <button
-                            type="button"
-                            onClick={addAppendix}
-                            className="btn-outline"
-                            style={{ padding: '6px 12px', fontSize: '12px' }}
-                          >
-                            ➕ إضافة ملحق جديد
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                <AppendicesSection
+                  editMode={editMode}
+                  number={getLevel1Number(10, formattingConfig)}
+                  appendices={reportPayload.appendices}
+                  formattingConfig={formattingConfig}
+                  onAppendixFieldChange={updateAppendixField}
+                  onAddAppendix={addAppendix}
+                  onRemoveAppendix={removeAppendix}
+                  onMoveAppendixUp={moveAppendixUp}
+                  onMoveAppendixDown={moveAppendixDown}
+                />
 
                 {false && reportPayload.finalEvaluation?.statement && (
                   <div style={{ marginTop: '25px', marginBottom: '25px' }}>
-                    <h3 className="section-num">{getLevel1Number(10, formattingConfig)} {reportPayload.finalEvaluation.statement}</h3>
+                    <h3 className="section-num">{getLevel1Number(9, formattingConfig)} {reportPayload.finalEvaluation.statement}</h3>
                   </div>
                 )}
 
                 {/* Signatures block */}
-                {(() => {
-                  const signatures = reportPayload.signatures || {};
-                  const leaderRank = signatures.leaderRank || '';
-                  const leaderName = signatures.leaderName || '';
-                  const leaderRole = signatures.leaderRole || 'رئيس اللجنة';
-                  const leaderDate = signatures.leaderDate || '';
-
-                  const deputyRank = signatures.deputyRank || '';
-                  const deputyName = signatures.deputyName || '';
-                  const deputyRole = signatures.deputyRole || 'رئيس هيئة تفتيش قوى الامن الداخلي';
-                  const deputyDate = signatures.deputyDate || '';
-
-                  const showMinisterSign = signatures.showMinisterSign !== false;
-                  const ministerTitle = signatures.ministerTitle || 'اصادق اصوليا';
-                  const ministerName = signatures.ministerName || 'وزيـــــــر الداخلية';
-                  const ministerDate = signatures.ministerDate || '٢٠٢٦/  / ';
-
-                  return (
-                    <div style={{ marginTop: '60px', borderTop: '1px dashed #cbd5e0', paddingTop: '20px' }}>
-                      {/* Minister Signature Toggle and Inputs in Edit Mode */}
-                      {editMode && (
-                        <div className="no-print" style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f7fafc', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', cursor: 'pointer', marginBottom: '10px' }}>
-                            <input
-                              type="checkbox"
-                              checked={showMinisterSign}
-                              onChange={(e) => updateSignatureField('showMinisterSign', e.target.checked)}
-                            />
-                            إظهار توقيع مصادقة وزير الداخلية في أعلى يسار التذييل
-                          </label>
-                          {showMinisterSign && (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginTop: '10px' }}>
-                              <div>
-                                <label style={{ display: 'block', fontSize: '12px', marginBottom: '4px' }}>عبارة المصادقة:</label>
-                                <input
-                                  type="text"
-                                  value={ministerTitle}
-                                  onChange={(e) => updateSignatureField('ministerTitle', e.target.value)}
-                                  style={{ width: '100%', border: '1px solid #cbd5e0', padding: '5px', borderRadius: '4px', fontFamily: 'inherit' }}
-                                />
-                              </div>
-                              <div>
-                                <label style={{ display: 'block', fontSize: '12px', marginBottom: '4px' }}>منصب المصادق:</label>
-                                <input
-                                  type="text"
-                                  value={ministerName}
-                                  onChange={(e) => updateSignatureField('ministerName', e.target.value)}
-                                  style={{ width: '100%', border: '1px solid #cbd5e0', padding: '5px', borderRadius: '4px', fontFamily: 'inherit' }}
-                                />
-                              </div>
-                              <div>
-                                <label style={{ display: 'block', fontSize: '12px', marginBottom: '4px' }}>التاريخ:</label>
-                                <input
-                                  type="text"
-                                  value={ministerDate}
-                                  onChange={(e) => updateSignatureField('ministerDate', e.target.value)}
-                                  style={{ width: '100%', border: '1px solid #cbd5e0', padding: '5px', borderRadius: '4px', fontFamily: 'inherit' }}
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Minister Signature in Preview Mode */}
-                      {showMinisterSign && (
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '25px', paddingLeft: '5%' }}>
-                          <div style={{ textAlign: 'center', width: '45%' }}>
-                            {editMode ? (
-                              <div style={{ color: '#718096', fontSize: '12px', border: '1px dashed #cbd5e0', padding: '5px', display: 'inline-block' }}>
-                                (توقيع مصادقة وزير الداخلية - معروض أعلاه)
-                              </div>
-                            ) : (
-                              <>
-                                <p style={{ margin: '0 0 5px 0' }}><strong>{ministerTitle}</strong></p>
-                                <p style={{ margin: '0 0 5px 0', fontSize: '15px' }}><strong>{ministerName}</strong></p>
-                                <p style={{ margin: '0', fontSize: '12px', color: '#4a5568' }}>
-                                  <span dir="ltr" style={{ direction: 'ltr', display: 'inline-block' }}>{ministerDate}</span>
-                                </p>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Two Columns: Leader (Right) and Deputy (Left) */}
-                      <div style={{ display: 'flex', justifyContent: 'space-around', width: '100%' }}>
-                        {/* Right Column: Leader */}
-                        <div style={{ textAlign: 'center', width: '45%' }}>
-                          {editMode ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'center' }}>
-                              <input
-                                type="text"
-                                value={leaderRank}
-                                onChange={(e) => updateSignatureField('leaderRank', e.target.value)}
-                                placeholder="الرتبة / العنوان الوظيفي"
-                                style={{ border: '1px dashed #cbd5e0', padding: '3px', textAlign: 'center', width: '90%', fontFamily: 'inherit', fontWeight: 'bold' }}
-                              />
-                              <input
-                                type="text"
-                                value={leaderName}
-                                onChange={(e) => updateSignatureField('leaderName', e.target.value)}
-                                placeholder="الاسم الكامل"
-                                style={{ border: '1px dashed #cbd5e0', padding: '3px', textAlign: 'center', width: '90%', fontFamily: 'inherit' }}
-                              />
-                              <input
-                                type="text"
-                                value={leaderRole}
-                                onChange={(e) => updateSignatureField('leaderRole', e.target.value)}
-                                placeholder="الصفة باللجنة"
-                                style={{ border: '1px dashed #cbd5e0', padding: '3px', textAlign: 'center', width: '90%', fontFamily: 'inherit', fontWeight: 'bold' }}
-                              />
-                              <input
-                                type="text"
-                                value={leaderDate}
-                                onChange={(e) => updateSignatureField('leaderDate', e.target.value)}
-                                placeholder="التاريخ"
-                                style={{ border: '1px dashed #cbd5e0', padding: '3px', textAlign: 'center', width: '90%', fontFamily: 'inherit', fontSize: '11px', color: '#4a5568' }}
-                              />
-                            </div>
-                          ) : (
-                            <>
-                              <div style={{ height: '55px' }}></div>
-                              <p style={{ margin: '0 0 5px 0' }}><strong>{leaderRank || '\u00A0'}</strong></p>
-                              <p style={{ margin: '0 0 5px 0' }}>{leaderName}</p>
-                              <p style={{ margin: '0 0 5px 0' }}><strong>{leaderRole}</strong></p>
-                              <p style={{ fontSize: '11px', color: '#4a5568', margin: 0 }}>
-                                <span dir="ltr" style={{ direction: 'ltr', display: 'inline-block' }}>{leaderDate}</span>
-                              </p>
-                            </>
-                          )}
-                        </div>
-
-                        {/* Left Column: Deputy */}
-                        <div style={{ textAlign: 'center', width: '45%' }}>
-                          {editMode ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'center' }}>
-                              <input
-                                type="text"
-                                value={deputyRank}
-                                onChange={(e) => updateSignatureField('deputyRank', e.target.value)}
-                                placeholder="الرتبة / العنوان الوظيفي"
-                                style={{ border: '1px dashed #cbd5e0', padding: '3px', textAlign: 'center', width: '90%', fontFamily: 'inherit', fontWeight: 'bold' }}
-                              />
-                              <input
-                                type="text"
-                                value={deputyName}
-                                onChange={(e) => updateSignatureField('deputyName', e.target.value)}
-                                placeholder="الاسم الكامل"
-                                style={{ border: '1px dashed #cbd5e0', padding: '3px', textAlign: 'center', width: '90%', fontFamily: 'inherit' }}
-                              />
-                              <input
-                                type="text"
-                                value={deputyRole}
-                                onChange={(e) => updateSignatureField('deputyRole', e.target.value)}
-                                placeholder="الصفة باللجنة"
-                                style={{ border: '1px dashed #cbd5e0', padding: '3px', textAlign: 'center', width: '90%', fontFamily: 'inherit', fontWeight: 'bold' }}
-                              />
-                              <input
-                                type="text"
-                                value={deputyDate}
-                                onChange={(e) => updateSignatureField('deputyDate', e.target.value)}
-                                placeholder="التاريخ"
-                                style={{ border: '1px dashed #cbd5e0', padding: '3px', textAlign: 'center', width: '90%', fontFamily: 'inherit', fontSize: '11px', color: '#4a5568' }}
-                              />
-                            </div>
-                          ) : (
-                            <>
-                              <div style={{ height: '55px' }}></div>
-                              <p style={{ margin: '0 0 5px 0' }}><strong>{deputyRank || '\u00A0'}</strong></p>
-                              <p style={{ margin: '0 0 5px 0' }}>{deputyName}</p>
-                              <p style={{ margin: '0 0 5px 0' }}><strong>{deputyRole}</strong></p>
-                              <p style={{ fontSize: '11px', color: '#4a5568', margin: 0 }}>
-                                <span dir="ltr" style={{ direction: 'ltr', display: 'inline-block' }}>{deputyDate}</span>
-                              </p>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
+                <SignaturesBlock
+                  signatures={reportPayload.signatures}
+                  editMode={editMode}
+                  onSignatureFieldChange={updateSignatureField}
+                />
               </div>
             ) : (
               /* STANDARD GENERAL TEMPLATE (for regular campaigns) */
@@ -3363,7 +2272,7 @@ export const Reports: React.FC = () => {
                   <tbody>
                     {reportPayload.evaluations.map((insp: any, idx: number) => (
                       <tr key={idx}>
-                        <td style={{ padding: '8px', border: '1px solid #1a1a1a' }}>{idx + 1}</td>
+                        <td style={{ padding: '8px', border: '1px solid #1a1a1a' }}>{editMode ? idx + 1 : formatArabicTableValue(idx + 1)}</td>
                         {editMode ? (
                           <>
                             <td style={{ padding: '4px', border: '1px solid #1a1a1a' }}>
@@ -3412,7 +2321,7 @@ export const Reports: React.FC = () => {
                             <td style={{ padding: '8px', border: '1px solid #1a1a1a' }}>{insp.entityName}</td>
                             <td style={{ padding: '8px', border: '1px solid #1a1a1a' }}>{insp.commanderName}</td>
                             <td style={{ padding: '8px', border: '1px solid #1a1a1a' }}>{insp.location}</td>
-                            <td style={{ padding: '8px', border: '1px solid #1a1a1a', fontWeight: 'bold' }}>{parseFloat(insp.totalScore).toFixed(1)}%</td>
+                            <td style={{ padding: '8px', border: '1px solid #1a1a1a', fontWeight: 'bold' }}>{formatArabicTableValue(parseFloat(insp.totalScore).toFixed(1), { percentage: true })}</td>
                             <td style={{ padding: '8px', border: '1px solid #1a1a1a', fontWeight: 'bold' }}>{insp.performanceRating}</td>
                           </>
                         )}
@@ -3449,263 +2358,71 @@ export const Reports: React.FC = () => {
                         )}
 
                         {((manualSec.showPositives && manualSec.positivesList?.length > 0) || (editMode && manualSec.showPositives)) && (
-                          <div style={{ marginBottom: '15px' }}>
-                            <div style={{ fontWeight: 'bold', color: '#1a5235', marginBottom: '5px' }}>
-                              {getLevel2ArabicLetter(level2Idx++, formattingConfig)} الإيجابيات ورصد كفاءة الأداء:
-                            </div>
-                            {manualSec.positivesList?.map((text: string, idx: number) => (
-                              <div key={idx} style={{ marginRight: getIndentation(3, formattingConfig), marginBottom: '6px', color: '#1a5235' }}>
-                                {editMode ? (
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                    <span>{getLevel3Ordinal(idx + 1, formattingConfig)}</span>
-                                    <input
-                                      type="text"
-                                      value={text}
-                                      onChange={(e) => updateFindingListItem(manualSecIndex, -1, 'positives', idx, e.target.value)}
-                                      style={{ flex: 1, border: '1px dashed #cbd5e0', padding: '3px', fontSize: '13.5px', color: '#1a5235', fontFamily: 'inherit' }}
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => moveFindingListItemUp(manualSecIndex, -1, 'positives', idx)}
-                                      disabled={idx === 0}
-                                      className="no-print"
-                                      style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                      title="نقل للأعلى"
-                                    >
-                                      ↑
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => moveFindingListItemDown(manualSecIndex, -1, 'positives', idx)}
-                                      disabled={idx === (manualSec.positivesList || []).length - 1}
-                                      className="no-print"
-                                      style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                      title="نقل للأسفل"
-                                    >
-                                      ↓
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => removeFindingListItem(manualSecIndex, -1, 'positives', idx)}
-                                      className="no-print"
-                                      style={{ backgroundColor: '#fed7d7', color: '#c53030', border: 'none', padding: '2px 6px', cursor: 'pointer', borderRadius: '4px' }}
-                                    >
-                                      حذف
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <>
-                                    {getLevel3Ordinal(idx + 1, formattingConfig)} {text}
-                                  </>
-                                )}
-                              </div>
-                            ))}
-                            {editMode && (
-                              <button
-                                type="button"
-                                onClick={() => addFindingListItem(manualSecIndex, -1, 'positives')}
-                                className="btn-outline no-print"
-                                style={{ marginRight: getIndentation(3, formattingConfig), padding: '4px 8px', fontSize: '11px', marginTop: '4px' }}
-                              >
-                                ➕ إضافة بند إيجابي
-                              </button>
-                            )}
-                          </div>
+                          <ManualFindingList
+                            number={getLevel2ArabicLetter(level2Idx++, formattingConfig)}
+                            titleText="الإيجابيات ورصد كفاءة الأداء:"
+                            color="#1a5235"
+                            items={manualSec.positivesList || []}
+                            editMode={editMode}
+                            formattingConfig={formattingConfig}
+                            addLabel="➕ إضافة بند إيجابي"
+                            onChangeItem={(idx, value) => updateFindingListItem(manualSecIndex, -1, 'positives', idx, value)}
+                            onMoveUp={(idx) => moveFindingListItemUp(manualSecIndex, -1, 'positives', idx)}
+                            onMoveDown={(idx) => moveFindingListItemDown(manualSecIndex, -1, 'positives', idx)}
+                            onRemove={(idx) => removeFindingListItem(manualSecIndex, -1, 'positives', idx)}
+                            onAdd={() => addFindingListItem(manualSecIndex, -1, 'positives')}
+                          />
                         )}
 
                         {((manualSec.showNegatives && manualSec.negativesList?.length > 0) || (editMode && manualSec.showNegatives)) && (
-                          <div style={{ marginBottom: '15px' }}>
-                            <div style={{ fontWeight: 'bold', color: '#742a2a', marginBottom: '5px' }}>
-                              {getLevel2ArabicLetter(level2Idx++, formattingConfig)} السلبيات ونقاط الضعف المرصودة:
-                            </div>
-                            {manualSec.negativesList?.map((text: string, idx: number) => (
-                              <div key={idx} style={{ marginRight: getIndentation(3, formattingConfig), marginBottom: '6px', color: '#742a2a' }}>
-                                {editMode ? (
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                    <span>{getLevel3Ordinal(idx + 1, formattingConfig)}</span>
-                                    <input
-                                      type="text"
-                                      value={text}
-                                      onChange={(e) => updateFindingListItem(manualSecIndex, -1, 'negatives', idx, e.target.value)}
-                                      style={{ flex: 1, border: '1px dashed #cbd5e0', padding: '3px', fontSize: '13.5px', color: '#742a2a', fontFamily: 'inherit' }}
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => moveFindingListItemUp(manualSecIndex, -1, 'negatives', idx)}
-                                      disabled={idx === 0}
-                                      className="no-print"
-                                      style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                      title="نقل للأعلى"
-                                    >
-                                      ↑
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => moveFindingListItemDown(manualSecIndex, -1, 'negatives', idx)}
-                                      disabled={idx === (manualSec.negativesList || []).length - 1}
-                                      className="no-print"
-                                      style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                      title="نقل للأسفل"
-                                    >
-                                      ↓
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => removeFindingListItem(manualSecIndex, -1, 'negatives', idx)}
-                                      className="no-print"
-                                      style={{ backgroundColor: '#fed7d7', color: '#c53030', border: 'none', padding: '2px 6px', cursor: 'pointer', borderRadius: '4px' }}
-                                    >
-                                      حذف
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <>
-                                    {getLevel3Ordinal(idx + 1, formattingConfig)} {text}
-                                  </>
-                                )}
-                              </div>
-                            ))}
-                            {editMode && (
-                              <button
-                                type="button"
-                                onClick={() => addFindingListItem(manualSecIndex, -1, 'negatives')}
-                                className="btn-outline no-print"
-                                style={{ marginRight: getIndentation(3, formattingConfig), padding: '4px 8px', fontSize: '11px', marginTop: '4px' }}
-                              >
-                                ➕ إضافة بند سلبي
-                              </button>
-                            )}
-                          </div>
+                          <ManualFindingList
+                            number={getLevel2ArabicLetter(level2Idx++, formattingConfig)}
+                            titleText="السلبيات ونقاط الضعف المرصودة:"
+                            color="#742a2a"
+                            items={manualSec.negativesList || []}
+                            editMode={editMode}
+                            formattingConfig={formattingConfig}
+                            addLabel="➕ إضافة بند سلبي"
+                            onChangeItem={(idx, value) => updateFindingListItem(manualSecIndex, -1, 'negatives', idx, value)}
+                            onMoveUp={(idx) => moveFindingListItemUp(manualSecIndex, -1, 'negatives', idx)}
+                            onMoveDown={(idx) => moveFindingListItemDown(manualSecIndex, -1, 'negatives', idx)}
+                            onRemove={(idx) => removeFindingListItem(manualSecIndex, -1, 'negatives', idx)}
+                            onAdd={() => addFindingListItem(manualSecIndex, -1, 'negatives')}
+                          />
                         )}
 
                         {((manualSec.showImpediments && manualSec.impedimentsList?.length > 0) || (editMode && manualSec.showImpediments)) && (
-                          <div style={{ marginBottom: '15px' }}>
-                            <div style={{ fontWeight: 'bold', color: '#7b341e', marginBottom: '5px' }}>
-                              {getLevel2ArabicLetter(level2Idx++, formattingConfig)} المعوقات التي تواجه العمل:
-                            </div>
-                            {manualSec.impedimentsList?.map((text: string, idx: number) => (
-                              <div key={idx} style={{ marginRight: getIndentation(3, formattingConfig), marginBottom: '6px', color: '#7b341e' }}>
-                                {editMode ? (
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                    <span>{getLevel3Ordinal(idx + 1, formattingConfig)}</span>
-                                    <input
-                                      type="text"
-                                      value={text}
-                                      onChange={(e) => updateFindingListItem(manualSecIndex, -1, 'impediments', idx, e.target.value)}
-                                      style={{ flex: 1, border: '1px dashed #cbd5e0', padding: '3px', fontSize: '13.5px', color: '#7b341e', fontFamily: 'inherit' }}
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => moveFindingListItemUp(manualSecIndex, -1, 'impediments', idx)}
-                                      disabled={idx === 0}
-                                      className="no-print"
-                                      style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                      title="نقل للأعلى"
-                                    >
-                                      ↑
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => moveFindingListItemDown(manualSecIndex, -1, 'impediments', idx)}
-                                      disabled={idx === (manualSec.impedimentsList || []).length - 1}
-                                      className="no-print"
-                                      style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                      title="نقل للأسفل"
-                                    >
-                                      ↓
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => removeFindingListItem(manualSecIndex, -1, 'impediments', idx)}
-                                      className="no-print"
-                                      style={{ backgroundColor: '#fed7d7', color: '#c53030', border: 'none', padding: '2px 6px', cursor: 'pointer', borderRadius: '4px' }}
-                                    >
-                                      حذف
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <>
-                                    {getLevel3Ordinal(idx + 1, formattingConfig)} {text}
-                                  </>
-                                )}
-                              </div>
-                            ))}
-                            {editMode && (
-                              <button
-                                type="button"
-                                onClick={() => addFindingListItem(manualSecIndex, -1, 'impediments')}
-                                className="btn-outline no-print"
-                                style={{ marginRight: getIndentation(3, formattingConfig), padding: '4px 8px', fontSize: '11px', marginTop: '4px' }}
-                              >
-                                ➕ إضافة بند عائق
-                              </button>
-                            )}
-                          </div>
+                          <ManualFindingList
+                            number={getLevel2ArabicLetter(level2Idx++, formattingConfig)}
+                            titleText="المعوقات التي تواجه العمل:"
+                            color="#7b341e"
+                            items={manualSec.impedimentsList || []}
+                            editMode={editMode}
+                            formattingConfig={formattingConfig}
+                            addLabel="➕ إضافة بند عائق"
+                            onChangeItem={(idx, value) => updateFindingListItem(manualSecIndex, -1, 'impediments', idx, value)}
+                            onMoveUp={(idx) => moveFindingListItemUp(manualSecIndex, -1, 'impediments', idx)}
+                            onMoveDown={(idx) => moveFindingListItemDown(manualSecIndex, -1, 'impediments', idx)}
+                            onRemove={(idx) => removeFindingListItem(manualSecIndex, -1, 'impediments', idx)}
+                            onAdd={() => addFindingListItem(manualSecIndex, -1, 'impediments')}
+                          />
                         )}
 
                         {((manualSec.showObstacles && manualSec.obstaclesList?.length > 0) || (editMode && manualSec.showObstacles)) && (
-                          <div style={{ marginBottom: '15px' }}>
-                            <div style={{ fontWeight: 'bold', color: '#5a3e2b', marginBottom: '5px' }}>
-                              {getLevel2ArabicLetter(level2Idx++, formattingConfig)} المعاضل التي واجهت الأداء الميداني:
-                            </div>
-                            {manualSec.obstaclesList?.map((text: string, idx: number) => (
-                              <div key={idx} style={{ marginRight: getIndentation(3, formattingConfig), marginBottom: '6px', color: '#5a3e2b' }}>
-                                {editMode ? (
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                    <span>{getLevel3Ordinal(idx + 1, formattingConfig)}</span>
-                                    <input
-                                      type="text"
-                                      value={text}
-                                      onChange={(e) => updateFindingListItem(manualSecIndex, -1, 'obstacles', idx, e.target.value)}
-                                      style={{ flex: 1, border: '1px dashed #cbd5e0', padding: '3px', fontSize: '13.5px', color: '#5a3e2b', fontFamily: 'inherit' }}
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => moveFindingListItemUp(manualSecIndex, -1, 'obstacles', idx)}
-                                      disabled={idx === 0}
-                                      className="no-print"
-                                      style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                      title="نقل للأعلى"
-                                    >
-                                      ↑
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => moveFindingListItemDown(manualSecIndex, -1, 'obstacles', idx)}
-                                      disabled={idx === (manualSec.obstaclesList || []).length - 1}
-                                      className="no-print"
-                                      style={{ padding: '2px 6px', fontSize: '11px', cursor: 'pointer', borderRadius: '4px', border: '1px solid #cbd5e0', backgroundColor: '#fff', marginLeft: '4px' }}
-                                      title="نقل للأسفل"
-                                    >
-                                      ↓
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => removeFindingListItem(manualSecIndex, -1, 'obstacles', idx)}
-                                      className="no-print"
-                                      style={{ backgroundColor: '#fed7d7', color: '#c53030', border: 'none', padding: '2px 6px', cursor: 'pointer', borderRadius: '4px' }}
-                                    >
-                                      حذف
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <>
-                                    {getLevel3Ordinal(idx + 1, formattingConfig)} {text}
-                                  </>
-                                )}
-                              </div>
-                            ))}
-                            {editMode && (
-                              <button
-                                type="button"
-                                onClick={() => addFindingListItem(manualSecIndex, -1, 'obstacles')}
-                                className="btn-outline no-print"
-                                style={{ marginRight: getIndentation(3, formattingConfig), padding: '4px 8px', fontSize: '11px', marginTop: '4px' }}
-                              >
-                                ➕ إضافة بند معضلة حرجة
-                              </button>
-                            )}
-                          </div>
+                          <ManualFindingList
+                            number={getLevel2ArabicLetter(level2Idx++, formattingConfig)}
+                            titleText="المعاضل التي واجهت الأداء الميداني:"
+                            color="#5a3e2b"
+                            items={manualSec.obstaclesList || []}
+                            editMode={editMode}
+                            formattingConfig={formattingConfig}
+                            addLabel="➕ إضافة بند معضلة حرجة"
+                            onChangeItem={(idx, value) => updateFindingListItem(manualSecIndex, -1, 'obstacles', idx, value)}
+                            onMoveUp={(idx) => moveFindingListItemUp(manualSecIndex, -1, 'obstacles', idx)}
+                            onMoveDown={(idx) => moveFindingListItemDown(manualSecIndex, -1, 'obstacles', idx)}
+                            onRemove={(idx) => removeFindingListItem(manualSecIndex, -1, 'obstacles', idx)}
+                            onAdd={() => addFindingListItem(manualSecIndex, -1, 'obstacles')}
+                          />
                         )}
                       </>
                     );
@@ -3951,188 +2668,11 @@ export const Reports: React.FC = () => {
                 )}
 
                 {/* Signatures block */}
-                {(() => {
-                  const signatures = reportPayload.signatures || {};
-                  const leaderRank = signatures.leaderRank || '';
-                  const leaderName = signatures.leaderName || '';
-                  const leaderRole = signatures.leaderRole || 'رئيس اللجنة';
-                  const leaderDate = signatures.leaderDate || '';
-
-                  const deputyRank = signatures.deputyRank || '';
-                  const deputyName = signatures.deputyName || '';
-                  const deputyRole = signatures.deputyRole || 'رئيس هيئة تفتيش قوى الامن الداخلي';
-                  const deputyDate = signatures.deputyDate || '';
-
-                  const showMinisterSign = signatures.showMinisterSign !== false;
-                  const ministerTitle = signatures.ministerTitle || 'اصادق اصوليا';
-                  const ministerName = signatures.ministerName || 'وزيـــــــر الداخلية';
-                  const ministerDate = signatures.ministerDate || '٢٠٢٦/  / ';
-
-                  return (
-                    <div style={{ marginTop: '60px', borderTop: '1px dashed #cbd5e0', paddingTop: '20px' }}>
-                      {/* Minister Signature Toggle and Inputs in Edit Mode */}
-                      {editMode && (
-                        <div className="no-print" style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f7fafc', border: '1px solid #e2e8f0', borderRadius: '6px' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', cursor: 'pointer', marginBottom: '10px' }}>
-                            <input
-                              type="checkbox"
-                              checked={showMinisterSign}
-                              onChange={(e) => updateSignatureField('showMinisterSign', e.target.checked)}
-                            />
-                            إظهار توقيع مصادقة وزير الداخلية في أعلى يسار التذييل
-                          </label>
-                          {showMinisterSign && (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginTop: '10px' }}>
-                              <div>
-                                <label style={{ display: 'block', fontSize: '12px', marginBottom: '4px' }}>عبارة المصادقة:</label>
-                                <input
-                                  type="text"
-                                  value={ministerTitle}
-                                  onChange={(e) => updateSignatureField('ministerTitle', e.target.value)}
-                                  style={{ width: '100%', border: '1px solid #cbd5e0', padding: '5px', borderRadius: '4px', fontFamily: 'inherit' }}
-                                />
-                              </div>
-                              <div>
-                                <label style={{ display: 'block', fontSize: '12px', marginBottom: '4px' }}>منصب المصادق:</label>
-                                <input
-                                  type="text"
-                                  value={ministerName}
-                                  onChange={(e) => updateSignatureField('ministerName', e.target.value)}
-                                  style={{ width: '100%', border: '1px solid #cbd5e0', padding: '5px', borderRadius: '4px', fontFamily: 'inherit' }}
-                                />
-                              </div>
-                              <div>
-                                <label style={{ display: 'block', fontSize: '12px', marginBottom: '4px' }}>التاريخ:</label>
-                                <input
-                                  type="text"
-                                  value={ministerDate}
-                                  onChange={(e) => updateSignatureField('ministerDate', e.target.value)}
-                                  style={{ width: '100%', border: '1px solid #cbd5e0', padding: '5px', borderRadius: '4px', fontFamily: 'inherit' }}
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Minister Signature in Preview Mode */}
-                      {showMinisterSign && (
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '25px', paddingLeft: '5%' }}>
-                          <div style={{ textAlign: 'center', width: '45%' }}>
-                            {editMode ? (
-                              <div style={{ color: '#718096', fontSize: '12px', border: '1px dashed #cbd5e0', padding: '5px', display: 'inline-block' }}>
-                                (توقيع مصادقة وزير الداخلية - معروض أعلاه)
-                              </div>
-                            ) : (
-                              <>
-                                <p style={{ margin: '0 0 5px 0' }}><strong>{ministerTitle}</strong></p>
-                                <p style={{ margin: '0 0 5px 0', fontSize: '15px' }}><strong>{ministerName}</strong></p>
-                                <p style={{ margin: '0', fontSize: '12px', color: '#4a5568' }}>
-                                  <span dir="ltr" style={{ direction: 'ltr', display: 'inline-block' }}>{ministerDate}</span>
-                                </p>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Two Columns: Leader (Right) and Deputy (Left) */}
-                      <div style={{ display: 'flex', justifyContent: 'space-around', width: '100%' }}>
-                        {/* Right Column: Leader */}
-                        <div style={{ textAlign: 'center', width: '45%' }}>
-                          {editMode ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'center' }}>
-                              <input
-                                type="text"
-                                value={leaderRank}
-                                onChange={(e) => updateSignatureField('leaderRank', e.target.value)}
-                                placeholder="الرتبة / العنوان الوظيفي"
-                                style={{ border: '1px dashed #cbd5e0', padding: '3px', textAlign: 'center', width: '90%', fontFamily: 'inherit', fontWeight: 'bold' }}
-                              />
-                              <input
-                                type="text"
-                                value={leaderName}
-                                onChange={(e) => updateSignatureField('leaderName', e.target.value)}
-                                placeholder="الاسم الكامل"
-                                style={{ border: '1px dashed #cbd5e0', padding: '3px', textAlign: 'center', width: '90%', fontFamily: 'inherit' }}
-                              />
-                              <input
-                                type="text"
-                                value={leaderRole}
-                                onChange={(e) => updateSignatureField('leaderRole', e.target.value)}
-                                placeholder="الصفة باللجنة"
-                                style={{ border: '1px dashed #cbd5e0', padding: '3px', textAlign: 'center', width: '90%', fontFamily: 'inherit', fontWeight: 'bold' }}
-                              />
-                              <input
-                                type="text"
-                                value={leaderDate}
-                                onChange={(e) => updateSignatureField('leaderDate', e.target.value)}
-                                placeholder="التاريخ"
-                                style={{ border: '1px dashed #cbd5e0', padding: '3px', textAlign: 'center', width: '90%', fontFamily: 'inherit', fontSize: '11px', color: '#4a5568' }}
-                              />
-                            </div>
-                          ) : (
-                            <>
-                              <div style={{ height: '55px' }}></div>
-                              <p style={{ margin: '0 0 5px 0' }}><strong>{leaderRank || '\u00A0'}</strong></p>
-                              <p style={{ margin: '0 0 5px 0' }}>{leaderName}</p>
-                              <p style={{ margin: '0 0 5px 0' }}><strong>{leaderRole}</strong></p>
-                              <p style={{ fontSize: '11px', color: '#4a5568', margin: 0 }}>
-                                <span dir="ltr" style={{ direction: 'ltr', display: 'inline-block' }}>{leaderDate}</span>
-                              </p>
-                            </>
-                          )}
-                        </div>
-
-                        {/* Left Column: Deputy */}
-                        <div style={{ textAlign: 'center', width: '45%' }}>
-                          {editMode ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', alignItems: 'center' }}>
-                              <input
-                                type="text"
-                                value={deputyRank}
-                                onChange={(e) => updateSignatureField('deputyRank', e.target.value)}
-                                placeholder="الرتبة / العنوان الوظيفي"
-                                style={{ border: '1px dashed #cbd5e0', padding: '3px', textAlign: 'center', width: '90%', fontFamily: 'inherit', fontWeight: 'bold' }}
-                              />
-                              <input
-                                type="text"
-                                value={deputyName}
-                                onChange={(e) => updateSignatureField('deputyName', e.target.value)}
-                                placeholder="الاسم الكامل"
-                                style={{ border: '1px dashed #cbd5e0', padding: '3px', textAlign: 'center', width: '90%', fontFamily: 'inherit' }}
-                              />
-                              <input
-                                type="text"
-                                value={deputyRole}
-                                onChange={(e) => updateSignatureField('deputyRole', e.target.value)}
-                                placeholder="الصفة باللجنة"
-                                style={{ border: '1px dashed #cbd5e0', padding: '3px', textAlign: 'center', width: '90%', fontFamily: 'inherit', fontWeight: 'bold' }}
-                              />
-                              <input
-                                type="text"
-                                value={deputyDate}
-                                onChange={(e) => updateSignatureField('deputyDate', e.target.value)}
-                                placeholder="التاريخ"
-                                style={{ border: '1px dashed #cbd5e0', padding: '3px', textAlign: 'center', width: '90%', fontFamily: 'inherit', fontSize: '11px', color: '#4a5568' }}
-                              />
-                            </div>
-                          ) : (
-                            <>
-                              <div style={{ height: '55px' }}></div>
-                              <p style={{ margin: '0 0 5px 0' }}><strong>{deputyRank || '\u00A0'}</strong></p>
-                              <p style={{ margin: '0 0 5px 0' }}>{deputyName}</p>
-                              <p style={{ margin: '0 0 5px 0' }}><strong>{deputyRole}</strong></p>
-                              <p style={{ fontSize: '11px', color: '#4a5568', margin: 0 }}>
-                                <span dir="ltr" style={{ direction: 'ltr', display: 'inline-block' }}>{deputyDate}</span>
-                              </p>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
+                <SignaturesBlock
+                  signatures={reportPayload.signatures}
+                  editMode={editMode}
+                  onSignatureFieldChange={updateSignatureField}
+                />
               </div>
             )}
           </div>

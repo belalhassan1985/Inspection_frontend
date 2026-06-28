@@ -1,0 +1,290 @@
+/**
+ * Report Print Styles
+ * 
+ * ملف CSS متخصص لتنسيق صفحات التقارير A4 والطباعة
+ * يضمن مطابقة المعاينة مع الطباعة الفعلية
+ */
+
+/* ========================================
+   A4 Page Layout - Screen View
+   ======================================== */
+
+.a4-page {
+  width: 210mm;
+  height: 297mm;
+  padding: 20mm 15mm;
+  margin: 0 auto 20px;
+  background-color: #ffffff;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  position: relative;
+  page-break-after: always;
+  overflow: hidden;
+  font-family: 'Cairo', 'Times New Roman', serif;
+  direction: rtl;
+  text-align: right;
+}
+
+.a4-content {
+  height: 100%;
+  overflow: hidden;
+}
+
+.page-number {
+  position: absolute;
+  bottom: 8mm;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: #718096;
+  font-family: 'Cairo', sans-serif;
+}
+
+/* ========================================
+   Print-Specific Styles
+   ======================================== */
+
+@media print {
+  /* إعدادات الصفحة */
+  @page {
+    size: A4 portrait;
+    margin: 20mm 15mm;
+  }
+
+  /* إزالة الظلال والحدود */
+  .a4-page {
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    page-break-after: always;
+    width: 100%;
+    min-height: auto;
+  }
+
+  /* إخفاء عناصر التحكم */
+  .no-print,
+  .page-header,
+  .page-number,
+  button,
+  select,
+  .btn-primary,
+  .btn-outline,
+  .btn-secondary,
+  .btn-danger,
+  .card:not(.print-container) {
+    display: none !important;
+  }
+
+  /* إظهار محتوى الطباعة فقط */
+  body * {
+    visibility: hidden;
+  }
+
+  .print-container,
+  .print-container * {
+    visibility: visible;
+  }
+
+  .print-container {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  /* ========================================
+     منع كسر الصفحات للعناصر الحساسة
+     ======================================== */
+
+  /* العناوين */
+  h1, h2, h3, h4, h5, h6,
+  .section-num,
+  .section-title,
+  .report-section-title {
+    page-break-after: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* الجداول القصيرة */
+  table.avoid-page-break,
+  .signature-section,
+  .committee-section {
+    page-break-inside: avoid;
+  }
+
+  /* الجداول الطويلة - السماح بالكسر مع تكرار الرأس */
+  table.long-table {
+    page-break-inside: auto;
+  }
+
+  table.long-table thead {
+    display: table-header-group;
+  }
+
+  table.long-table tfoot {
+    display: table-footer-group;
+  }
+
+  table.long-table tr {
+    page-break-inside: avoid;
+  }
+
+  /* الفقرات والنصوص */
+  p, div.section-body {
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* فرض كسر الصفحة */
+  .force-page-break {
+    page-break-before: always;
+  }
+
+  /* منع كسر الصفحة */
+  .avoid-page-break {
+    page-break-inside: avoid;
+  }
+
+  /* ========================================
+     تنسيق الجداول للطباعة
+     ======================================== */
+
+  table.military-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0 25px 0;
+  }
+
+  table.military-table th,
+  table.military-table td {
+    border: 1px solid #000000;
+    padding: 8px 10px;
+    text-align: center;
+    font-size: 13px;
+  }
+
+  table.military-table th {
+    background-color: #f2f2f2 !important;
+    font-weight: bold;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ========================================
+     تنسيق التوقيعات
+     ======================================== */
+
+  .signature-section {
+    page-break-inside: avoid;
+    margin-top: 30px;
+  }
+
+  .signature-row {
+    page-break-inside: avoid;
+  }
+
+  /* ========================================
+     الخطوط والألوان
+     ======================================== */
+
+  /* التأكد من طباعة الألوان */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* تحسين وضوح النص */
+  body {
+    font-family: 'Cairo', 'Times New Roman', serif;
+    color: #000000;
+  }
+
+  /* ========================================
+     تحسينات إضافية
+     ======================================== */
+
+  /* إزالة الروابط التفاعلية */
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  /* إخفاء حقول الإدخال في وضع القراءة */
+  input[type="text"]:not(.print-visible),
+  textarea:not(.print-visible) {
+    border: none;
+    background: transparent;
+    padding: 0;
+  }
+
+  /* التأكد من عرض الصور */
+  img {
+    max-width: 100%;
+    page-break-inside: avoid;
+  }
+}
+
+/* ========================================
+   Screen-Only Helpers
+   ======================================== */
+
+@media screen {
+  /* مساعدات بصرية للمعاينة */
+  .a4-page:hover {
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.15);
+  }
+
+  /* تمييز العناصر التي ستُكسر */
+  .will-break-warning {
+    border-left: 3px solid #f4a261;
+    padding-left: 8px;
+  }
+}
+
+/* ========================================
+   Utility Classes
+   ======================================== */
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  .print-only {
+    display: block;
+  }
+}
+
+/* تباعد الصفحات في المعاينة */
+.a4-page + .a4-page {
+  margin-top: 20px;
+}
+
+/* ========================================
+   RTL Support
+   ======================================== */
+
+.a4-page {
+  direction: rtl;
+  text-align: right;
+}
+
+.a4-page table {
+  direction: rtl;
+}
+
+/* ========================================
+   Responsive Adjustments (للشاشات الصغيرة)
+   ======================================== */
+
+@media screen and (max-width: 768px) {
+  .a4-page {
+    width: 100%;
+    min-height: auto;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+  }
+}

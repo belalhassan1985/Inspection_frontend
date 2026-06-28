@@ -25,7 +25,6 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     const socketUrl = import.meta.env.VITE_WS_URL || 'http://localhost:3001';
-    console.log('[Socket] Connecting to Websocket Gateway:', socketUrl);
 
     const socketInstance = io(socketUrl, {
       auth: {
@@ -40,24 +39,20 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     socketInstance.on('connect', () => {
-      console.log('[Socket] Connected and authenticated successfully.');
       setIsConnected(true);
     });
 
-    socketInstance.on('disconnect', (reason) => {
-      console.log('[Socket] Disconnected. Reason:', reason);
+    socketInstance.on('disconnect', () => {
       setIsConnected(false);
     });
 
-    socketInstance.on('connect_error', (err) => {
-      console.error('[Socket] Connection or Authentication error:', err.message);
+    socketInstance.on('connect_error', () => {
       setIsConnected(false);
     });
 
     setSocket(socketInstance);
 
     return () => {
-      console.log('[Socket] Disconnecting socket client...');
       socketInstance.disconnect();
       setSocket(null);
       setIsConnected(false);

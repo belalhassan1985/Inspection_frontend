@@ -24,7 +24,7 @@ export const AuditLogs: React.FC = () => {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">سجل العمليات والنظام (Audit Trail)</h1>
+          <h1 className="page-title">سجل العمليات والنظام</h1>
           <p className="page-subtitle">سجل العمليات الرقابية وسجل الدخول غير القابل للتعديل لأغراض الأمان والتدقيق</p>
         </div>
       </div>
